@@ -1,6 +1,8 @@
 import { PlayerState, PHYSICS, ABILITIES } from '@wizard-zone/shared';
+import { ArenaCollisionSystem } from './ArenaCollisionSystem.js';
 
 export class PhysicsSystem {
+  private arenaCollision = new ArenaCollisionSystem();
   update(players: Map<string, PlayerState>, deltaSeconds: number): void {
     for (const player of players.values()) {
       if (!player.isAlive) continue;
@@ -19,16 +21,20 @@ export class PhysicsSystem {
     player.position.y += player.velocity.y * dt;
     player.position.z += player.velocity.z * dt;
 
-    // Ground collision (simple floor at y=0)
-    const playerBottomY = player.position.y - PHYSICS.PLAYER_HEIGHT / 2;
-    if (playerBottomY <= PHYSICS.GROUND_LEVEL) {
-      player.position.y = PHYSICS.GROUND_LEVEL + PHYSICS.PLAYER_HEIGHT / 2;
-      player.velocity.y = 0;
-      player.isGrounded = true;
-    } else {
-      // Check if player just walked off an edge
-      player.isGrounded = false;
-    }
+    // Resolve all arena collisions (platforms, ramps, walls, pillars)
+    const collisionResult = this.arenaCollision.resolveCollisions(
+      player.position,
+      player.velocity
+    );
+
+    // Apply collision results
+    player.position.x = collisionResult.position.x;
+    player.position.y = collisionResult.position.y;
+    player.position.z = collisionResult.position.z;
+    player.velocity.x = collisionResult.velocity.x;
+    player.velocity.y = collisionResult.velocity.y;
+    player.velocity.z = collisionResult.velocity.z;
+    player.isGrounded = collisionResult.isGrounded;
 
     // Apply horizontal friction when grounded
     if (player.isGrounded) {
@@ -36,12 +42,7 @@ export class PhysicsSystem {
       player.velocity.z *= PHYSICS.GROUND_FRICTION;
     }
 
-    // Clamp to arena bounds
-    const halfArena = 29; // 60/2 - 1 for wall thickness
-    player.position.x = Math.max(-halfArena, Math.min(halfArena, player.position.x));
-    player.position.z = Math.max(-halfArena, Math.min(halfArena, player.position.z));
-
-    // Prevent falling through the world
+    // Prevent falling through the world (safety check)
     if (player.position.y < 0) {
       player.position.y = PHYSICS.PLAYER_HEIGHT / 2;
       player.velocity.y = 0;
