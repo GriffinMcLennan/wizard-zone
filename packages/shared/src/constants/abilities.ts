@@ -31,4 +31,8 @@ export const ABILITIES = {
 export const PLAYER = {
   MAX_HEALTH: 100,
   SPAWN_HEALTH: 100,
+  HEALTH_REGEN: {
+    DELAY_MS: 8000,       // 8 seconds before regen starts
+    RATE_PER_SECOND: 5,   // 5 HP per second
+  },
 } as const;

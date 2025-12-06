@@ -29,6 +29,7 @@ export interface PlayerState {
   isGrounded: boolean;
   abilities: AbilityState;
   lastProcessedInput: number;
+  lastDamageTick: number;
 }
 
 // Use a large negative number to ensure abilities are always ready on spawn
@@ -59,5 +60,6 @@ export function createDefaultPlayerState(id: PlayerId, name: string): PlayerStat
     isGrounded: true,
     abilities: createDefaultAbilityState(),
     lastProcessedInput: 0,
+    lastDamageTick: 0,
   };
 }

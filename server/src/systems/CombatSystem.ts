@@ -13,7 +13,8 @@ export class CombatSystem {
    */
   applyDamage(
     players: Map<PlayerId, PlayerState>,
-    hits: CollisionResult[]
+    hits: CollisionResult[],
+    currentTick: number
   ): DeathEvent[] {
     const deaths: DeathEvent[] = [];
 
@@ -22,6 +23,7 @@ export class CombatSystem {
       if (!player || !player.isAlive) continue;
 
       player.health -= hit.damage;
+      player.lastDamageTick = currentTick;
 
       if (player.health <= 0) {
         player.health = 0;
@@ -56,12 +58,14 @@ export class CombatSystem {
     players: Map<PlayerId, PlayerState>,
     victimId: PlayerId,
     killerId: PlayerId,
-    damage: number
+    damage: number,
+    currentTick: number
   ): DeathEvent | null {
     const victim = players.get(victimId);
     if (!victim || !victim.isAlive) return null;
 
     victim.health -= damage;
+    victim.lastDamageTick = currentTick;
 
     if (victim.health <= 0) {
       victim.health = 0;

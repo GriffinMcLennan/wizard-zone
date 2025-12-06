@@ -22,6 +22,7 @@ import { CollisionSystem } from '../systems/CollisionSystem.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
 import { NovaBlastSystem } from '../systems/NovaBlastSystem.js';
 import { ArcaneRaySystem } from '../systems/ArcaneRaySystem.js';
+import { HealthRegenSystem } from '../systems/HealthRegenSystem.js';
 import { NovaBlastMessage, ArcaneRayMessage } from '@wizard-zone/shared';
 
 type BroadcastFn = (message: object) => void;
@@ -57,6 +58,7 @@ export class GameRoom {
   private combatSystem: CombatSystem;
   private novaBlastSystem: NovaBlastSystem;
   private arcaneRaySystem: ArcaneRaySystem;
+  private healthRegenSystem: HealthRegenSystem;
 
   constructor(roomId: string) {
     this.roomId = roomId;
@@ -66,6 +68,7 @@ export class GameRoom {
     this.combatSystem = new CombatSystem();
     this.novaBlastSystem = new NovaBlastSystem();
     this.arcaneRaySystem = new ArcaneRaySystem();
+    this.healthRegenSystem = new HealthRegenSystem();
   }
 
   setBroadcaster(fn: BroadcastFn): void {
@@ -336,7 +339,8 @@ export class GameRoom {
         this.players,
         hit.playerId,
         hit.ownerId,
-        hit.damage
+        hit.damage,
+        this.currentTick
       );
 
       if (death) {
@@ -350,6 +354,9 @@ export class GameRoom {
     // Update ability cooldowns
     this.projectileSystem.updateCooldowns(this.players, this.currentTick);
     this.physicsSystem.updateAbilityCooldowns(this.players, this.currentTick);
+
+    // Update health regeneration
+    this.healthRegenSystem.update(this.players, this.currentTick, deltaSeconds);
 
     // Broadcast state to all clients
     this.broadcastState();
@@ -434,7 +441,8 @@ export class GameRoom {
             this.players,
             victimId,
             result.casterId,
-            result.damage
+            result.damage,
+            this.currentTick
           );
           if (death) {
             this.handleDeath(death);
@@ -467,7 +475,8 @@ export class GameRoom {
             this.players,
             result.hitPlayerId,
             player.id,
-            result.damage
+            result.damage,
+            this.currentTick
           );
           if (death) {
             this.handleDeath(death);
