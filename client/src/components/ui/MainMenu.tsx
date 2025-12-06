@@ -206,6 +206,14 @@ export function MainMenu() {
               <span>Launch</span>
               <span style={styles.controlKey}>Q</span>
             </div>
+            <div style={styles.controlItem}>
+              <span>Nova Blast</span>
+              <span style={styles.controlKey}>E</span>
+            </div>
+            <div style={styles.controlItem}>
+              <span>Arcane Ray</span>
+              <span style={styles.controlKey}>R</span>
+            </div>
           </div>
         </div>
       </div>
