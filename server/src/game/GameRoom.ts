@@ -10,6 +10,7 @@ import {
   PHYSICS,
 } from '@wizard-zone/shared';
 import { PhysicsSystem } from '../systems/PhysicsSystem.js';
+import { ProjectileSystem } from '../systems/ProjectileSystem.js';
 
 type BroadcastFn = (message: object) => void;
 
@@ -24,10 +25,12 @@ export class GameRoom {
   private intervalId: NodeJS.Timeout | null = null;
 
   private physicsSystem: PhysicsSystem;
+  private projectileSystem: ProjectileSystem;
 
   constructor(roomId: string) {
     this.roomId = roomId;
     this.physicsSystem = new PhysicsSystem();
+    this.projectileSystem = new ProjectileSystem();
   }
 
   setBroadcaster(fn: BroadcastFn): void {
@@ -92,6 +95,21 @@ export class GameRoom {
     // Update physics
     this.physicsSystem.update(this.players, deltaSeconds);
 
+    // Update projectiles
+    const expiredProjectiles = this.projectileSystem.update(
+      this.projectiles,
+      this.currentTick,
+      deltaSeconds
+    );
+
+    // Remove expired projectiles
+    for (const id of expiredProjectiles) {
+      this.projectiles.delete(id);
+    }
+
+    // Update ability cooldowns
+    this.projectileSystem.updateCooldowns(this.players, this.currentTick);
+
     // Broadcast state to all clients
     this.broadcastState();
   }
@@ -131,6 +149,15 @@ export class GameRoom {
     // Apply jump
     if (input.actions.jump) {
       this.physicsSystem.applyJump(player);
+    }
+
+    // Primary fire - spawn projectile
+    if (input.actions.primaryFire) {
+      if (this.projectileSystem.canFire(player, this.currentTick)) {
+        const projectile = this.projectileSystem.createProjectile(player, this.currentTick);
+        this.projectiles.set(projectile.id, projectile);
+        this.projectileSystem.recordFire(player, this.currentTick);
+      }
     }
 
     // Dash and launch jump will be added in Phase 7

@@ -6,6 +6,7 @@ import { useGameStore } from '../../stores/gameStore';
 import { useFirstPersonControls } from '../../hooks/useFirstPersonControls';
 import { InputController } from './InputController';
 import { Arena } from './Arena';
+import { Projectiles } from './Projectiles';
 import { PHYSICS } from '@wizard-zone/shared';
 
 export function Scene() {
@@ -44,6 +45,9 @@ export function Scene() {
       {Array.from(remotePlayers.values()).map((player) => (
         <RemotePlayerMesh key={player.id} player={player} />
       ))}
+
+      {/* Projectiles */}
+      <Projectiles />
 
       {/* Sky */}
       <Sky
