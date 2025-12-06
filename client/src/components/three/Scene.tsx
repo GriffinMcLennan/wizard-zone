@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Sky } from '@react-three/drei';
+import { Sky, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import { useGameStore } from '../../stores/gameStore';
 import { useFirstPersonControls } from '../../hooks/useFirstPersonControls';
@@ -256,19 +256,22 @@ function RemotePlayerMesh({ player }: RemotePlayerMeshProps) {
         <pointLight color="#8b5cf6" intensity={0.5} distance={2} />
       </group>
 
-      {/* Health bar background */}
-      <mesh position={[0, 2.4, 0]}>
-        <planeGeometry args={[0.8, 0.1]} />
-        <meshBasicMaterial color="#1f2937" transparent opacity={0.8} />
-      </mesh>
+      {/* Health bar - Billboard makes it always face the camera */}
+      <Billboard position={[0, 2.4, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
+        {/* Health bar background */}
+        <mesh position={[0, 0, 0]}>
+          <planeGeometry args={[0.8, 0.1]} />
+          <meshBasicMaterial color="#1f2937" transparent opacity={0.8} />
+        </mesh>
 
-      {/* Health bar fill */}
-      <mesh position={[-0.4 * (1 - healthPercent), 2.4, 0.01]}>
-        <planeGeometry args={[0.8 * healthPercent, 0.08]} />
-        <meshBasicMaterial
-          color={healthPercent > 0.5 ? '#22c55e' : healthPercent > 0.25 ? '#eab308' : '#ef4444'}
-        />
-      </mesh>
+        {/* Health bar fill */}
+        <mesh position={[-0.4 * (1 - healthPercent), 0, 0.01]}>
+          <planeGeometry args={[0.8 * healthPercent, 0.08]} />
+          <meshBasicMaterial
+            color={healthPercent > 0.5 ? '#22c55e' : healthPercent > 0.25 ? '#eab308' : '#ef4444'}
+          />
+        </mesh>
+      </Billboard>
 
       {/* Subtle glow under wizard */}
       <pointLight
