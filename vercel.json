@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd packages/shared && npm run build && cd ../../client && npm run build",
-  "outputDirectory": "client/dist",
-  "installCommand": "npm install"
+  "buildCommand": "cd ../packages/shared && npm run build && cd ../../client && npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "cd .. && npm install"
 }
