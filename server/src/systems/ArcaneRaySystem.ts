@@ -69,9 +69,7 @@ export class ArcaneRaySystem {
   private canFire(caster: PlayerState, currentTick: number): boolean {
     const cooldownTicks = cooldownMsToTicks(ABILITIES.ARCANE_RAY.COOLDOWN_MS);
     const ticksSinceLastUse = currentTick - caster.abilities.arcaneRay.lastUsed;
-    const isFirstUse = caster.abilities.arcaneRay.lastUsed === 0;
-
-    return isFirstUse || ticksSinceLastUse >= cooldownTicks;
+    return ticksSinceLastUse >= cooldownTicks;
   }
 
   /**

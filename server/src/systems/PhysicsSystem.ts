@@ -124,7 +124,7 @@ export class PhysicsSystem {
     const cooldownTicks = cooldownMsToTicks(ABILITIES.DASH.COOLDOWN_MS);
     const ticksSinceLastUse = currentTick - player.abilities.dash.lastUsed;
 
-    if (ticksSinceLastUse < cooldownTicks && player.abilities.dash.lastUsed !== 0) {
+    if (ticksSinceLastUse < cooldownTicks) {
       return false;
     }
 
@@ -167,7 +167,7 @@ export class PhysicsSystem {
     const cooldownTicks = cooldownMsToTicks(ABILITIES.LAUNCH_JUMP.COOLDOWN_MS);
     const ticksSinceLastUse = currentTick - player.abilities.launchJump.lastUsed;
 
-    if (ticksSinceLastUse < cooldownTicks && player.abilities.launchJump.lastUsed !== 0) {
+    if (ticksSinceLastUse < cooldownTicks) {
       return false;
     }
 

@@ -37,6 +37,8 @@ export enum ServerMessageType {
   PLAYER_LEFT = 'player_left',
   PLAYER_DIED = 'player_died',
   GAME_OVER = 'game_over',
+  GAME_PHASE_UPDATE = 'game_phase_update',
+  COUNTDOWN_UPDATE = 'countdown_update',
   PONG = 'pong',
   ERROR = 'error',
   NOVA_BLAST = 'nova_blast',
@@ -80,6 +82,21 @@ export interface GameOverMessage {
   winnerName: string;
 }
 
+// Game phase types
+export type GamePhase = 'waiting_for_players' | 'playing' | 'countdown';
+
+export interface GamePhaseUpdateMessage {
+  type: ServerMessageType.GAME_PHASE_UPDATE;
+  phase: GamePhase;
+  minPlayers: number;
+  currentPlayers: number;
+}
+
+export interface CountdownUpdateMessage {
+  type: ServerMessageType.COUNTDOWN_UPDATE;
+  secondsRemaining: number;
+}
+
 export interface PongMessage {
   type: ServerMessageType.PONG;
   clientTime: number;
@@ -113,6 +130,8 @@ export type ServerMessage =
   | PlayerLeftMessage
   | PlayerDiedMessage
   | GameOverMessage
+  | GamePhaseUpdateMessage
+  | CountdownUpdateMessage
   | PongMessage
   | ErrorMessage
   | NovaBlastMessage

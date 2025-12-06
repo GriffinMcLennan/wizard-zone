@@ -166,7 +166,8 @@ describe('NovaBlastSystem', () => {
       const caster = createDefaultPlayerState('caster', 'Caster');
       const players = new Map([['caster', caster]]);
 
-      expect(caster.abilities.novaBlast.lastUsed).toBe(0);
+      // Initial lastUsed is a large negative number (NEVER_USED)
+      expect(caster.abilities.novaBlast.lastUsed).toBeLessThan(0);
 
       novaBlastSystem.fireNovaBlast(caster, players, 100);
 

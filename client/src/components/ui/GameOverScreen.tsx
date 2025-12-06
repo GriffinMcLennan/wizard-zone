@@ -53,12 +53,22 @@ const styles: Record<string, React.CSSProperties> = {
     textShadow: '0 0 20px rgba(255, 215, 0, 0.5)',
     marginBottom: '32px',
   },
+  countdown: {
+    fontSize: '28px',
+    color: '#facc15',
+    marginBottom: '24px',
+  },
+  waiting: {
+    fontSize: '20px',
+    color: '#94a3b8',
+    marginBottom: '24px',
+  },
   button: {
     padding: '16px 48px',
     fontSize: '18px',
     fontWeight: 'bold',
     color: '#fff',
-    background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
     border: 'none',
     borderRadius: '8px',
     cursor: 'pointer',
@@ -70,15 +80,15 @@ const styles: Record<string, React.CSSProperties> = {
 export function GameOverScreen() {
   const gameOver = useGameStore((s) => s.gameOver);
   const playerId = useGameStore((s) => s.playerId);
-  const disconnect = useGameStore((s) => s.disconnect);
+  const gamePhase = useGameStore((s) => s.gamePhase);
+  const countdownSeconds = useGameStore((s) => s.countdownSeconds);
+  const returnToMenu = useGameStore((s) => s.returnToMenu);
 
   if (!gameOver) return null;
 
   const isWinner = gameOver.winnerId === playerId;
-
-  const handlePlayAgain = () => {
-    disconnect();
-  };
+  const showCountdown = gamePhase === 'countdown' && countdownSeconds > 0;
+  const showWaiting = gamePhase === 'waiting_for_players';
 
   return (
     <div style={styles.overlay}>
@@ -95,19 +105,31 @@ export function GameOverScreen() {
           </>
         )}
 
+        {showCountdown && (
+          <div style={styles.countdown}>
+            Next game in {countdownSeconds}...
+          </div>
+        )}
+
+        {showWaiting && (
+          <div style={styles.waiting}>
+            Waiting for more players...
+          </div>
+        )}
+
         <button
           style={styles.button}
-          onClick={handlePlayAgain}
+          onClick={returnToMenu}
           onMouseOver={(e) => {
             e.currentTarget.style.transform = 'scale(1.05)';
-            e.currentTarget.style.boxShadow = '0 0 20px rgba(99, 102, 241, 0.5)';
+            e.currentTarget.style.boxShadow = '0 0 20px rgba(239, 68, 68, 0.5)';
           }}
           onMouseOut={(e) => {
             e.currentTarget.style.transform = 'scale(1)';
             e.currentTarget.style.boxShadow = 'none';
           }}
         >
-          Return to Menu
+          Leave Game
         </button>
       </div>
     </div>

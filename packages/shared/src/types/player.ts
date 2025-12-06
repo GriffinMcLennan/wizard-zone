@@ -31,13 +31,17 @@ export interface PlayerState {
   lastProcessedInput: number;
 }
 
+// Use a large negative number to ensure abilities are always ready on spawn
+// This guarantees (currentTick - lastUsed) will exceed any cooldown
+const NEVER_USED = -100000;
+
 export function createDefaultAbilityState(): AbilityState {
   return {
-    dash: { ready: true, cooldownRemaining: 0, lastUsed: 0 },
-    launchJump: { ready: true, cooldownRemaining: 0, lastUsed: 0 },
-    primaryFire: { ready: true, cooldownRemaining: 0, lastUsed: 0 },
-    novaBlast: { ready: true, cooldownRemaining: 0, lastUsed: 0 },
-    arcaneRay: { ready: true, cooldownRemaining: 0, lastUsed: 0 },
+    dash: { ready: true, cooldownRemaining: 0, lastUsed: NEVER_USED },
+    launchJump: { ready: true, cooldownRemaining: 0, lastUsed: NEVER_USED },
+    primaryFire: { ready: true, cooldownRemaining: 0, lastUsed: NEVER_USED },
+    novaBlast: { ready: true, cooldownRemaining: 0, lastUsed: NEVER_USED },
+    arcaneRay: { ready: true, cooldownRemaining: 0, lastUsed: NEVER_USED },
   };
 }
 

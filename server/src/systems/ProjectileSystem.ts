@@ -90,7 +90,7 @@ export class ProjectileSystem {
   canFire(player: PlayerState, currentTick: number): boolean {
     const cooldownTicks = cooldownMsToTicks(ABILITIES.PRIMARY_FIRE.COOLDOWN_MS);
     const ticksSinceLastFire = currentTick - player.abilities.primaryFire.lastUsed;
-    return ticksSinceLastFire >= cooldownTicks || player.abilities.primaryFire.lastUsed === 0;
+    return ticksSinceLastFire >= cooldownTicks;
   }
 
   recordFire(player: PlayerState, currentTick: number): void {

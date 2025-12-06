@@ -190,7 +190,8 @@ describe('ArcaneRaySystem', () => {
       const caster = createDefaultPlayerState('caster', 'Caster');
       const players = new Map([['caster', caster]]);
 
-      expect(caster.abilities.arcaneRay.lastUsed).toBe(0);
+      // Initial lastUsed is a large negative number (NEVER_USED)
+      expect(caster.abilities.arcaneRay.lastUsed).toBeLessThan(0);
 
       arcaneRaySystem.fireArcaneRay(caster, players, 100);
 

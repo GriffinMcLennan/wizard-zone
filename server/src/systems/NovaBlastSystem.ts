@@ -63,8 +63,6 @@ export class NovaBlastSystem {
   private canFire(caster: PlayerState, currentTick: number): boolean {
     const cooldownTicks = cooldownMsToTicks(ABILITIES.NOVA_BLAST.COOLDOWN_MS);
     const ticksSinceLastUse = currentTick - caster.abilities.novaBlast.lastUsed;
-    const isFirstUse = caster.abilities.novaBlast.lastUsed === 0;
-
-    return isFirstUse || ticksSinceLastUse >= cooldownTicks;
+    return ticksSinceLastUse >= cooldownTicks;
   }
 }

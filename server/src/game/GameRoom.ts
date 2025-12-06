@@ -7,12 +7,14 @@ import {
   ProjectileState,
   PlayerDiedMessage,
   GameOverMessage,
-  NovaBlastMessage,
-  ArcaneRayMessage,
+  GamePhaseUpdateMessage,
+  CountdownUpdateMessage,
+  GamePhase,
   createDefaultPlayerState,
   NETWORK,
   PHYSICS,
   ABILITIES,
+  GAME,
 } from '@wizard-zone/shared';
 import { PhysicsSystem } from '../systems/PhysicsSystem.js';
 import { ProjectileSystem } from '../systems/ProjectileSystem.js';
@@ -20,20 +22,35 @@ import { CollisionSystem } from '../systems/CollisionSystem.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
 import { NovaBlastSystem } from '../systems/NovaBlastSystem.js';
 import { ArcaneRaySystem } from '../systems/ArcaneRaySystem.js';
+import { NovaBlastMessage, ArcaneRayMessage } from '@wizard-zone/shared';
 
 type BroadcastFn = (message: object) => void;
 
 export class GameRoom {
   public readonly roomId: string;
+
+  // Game phase state
+  private phase: GamePhase = 'waiting_for_players';
+
+  // Connected players (persists across games)
+  private connectedPlayers: Map<PlayerId, { name: string }> = new Map();
+
+  // Active game state (cleared between games)
   private players: Map<PlayerId, PlayerState> = new Map();
   private projectiles: Map<string, ProjectileState> = new Map();
   private pendingInputs: Map<PlayerId, InputState[]> = new Map();
   private currentTick = 0;
+
+  // Countdown state
+  private countdownSeconds: number = 0;
+  private countdownIntervalId: NodeJS.Timeout | null = null;
+
+  // Game loop state
   private running = false;
   private broadcast: BroadcastFn = () => {};
   private intervalId: NodeJS.Timeout | null = null;
-  private gameOver = false;
 
+  // Systems
   private physicsSystem: PhysicsSystem;
   private projectileSystem: ProjectileSystem;
   private collisionSystem: CollisionSystem;
@@ -75,11 +92,77 @@ export class GameRoom {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
+    this.stopCountdown();
   }
 
   addPlayer(playerId: PlayerId, playerName: string): void {
-    const player = createDefaultPlayerState(playerId, playerName);
+    // Always track in connected players
+    this.connectedPlayers.set(playerId, { name: playerName });
+    this.pendingInputs.set(playerId, []);
 
+    if (this.phase === 'playing') {
+      // Game in progress - spawn player immediately
+      const player = createDefaultPlayerState(playerId, playerName);
+      this.setRandomSpawnPosition(player);
+      this.players.set(playerId, player);
+      console.log(`[GameRoom] Player ${playerName} joined mid-game at (${player.position.x.toFixed(2)}, ${player.position.z.toFixed(2)})`);
+    } else if (this.phase === 'waiting_for_players') {
+      // Add to game state for rendering
+      const player = createDefaultPlayerState(playerId, playerName);
+      this.setRandomSpawnPosition(player);
+      this.players.set(playerId, player);
+      console.log(`[GameRoom] Player ${playerName} joined waiting room at (${player.position.x.toFixed(2)}, ${player.position.z.toFixed(2)})`);
+
+      // Check if we now have enough players to start
+      this.checkAutoStart();
+    } else if (this.phase === 'countdown') {
+      // Player joins during countdown - they'll be visible and in next game
+      const player = createDefaultPlayerState(playerId, playerName);
+      this.setRandomSpawnPosition(player);
+      this.players.set(playerId, player);
+      console.log(`[GameRoom] Player ${playerName} joined during countdown at (${player.position.x.toFixed(2)}, ${player.position.z.toFixed(2)})`);
+    }
+
+    // Broadcast phase to all clients (new player needs current state)
+    this.broadcastPhase();
+  }
+
+  removePlayer(playerId: PlayerId): void {
+    const playerInfo = this.connectedPlayers.get(playerId);
+    this.connectedPlayers.delete(playerId);
+    this.players.delete(playerId);
+    this.pendingInputs.delete(playerId);
+
+    console.log(`[GameRoom] Player ${playerInfo?.name ?? playerId} disconnected`);
+
+    // If room is now empty, full reset
+    if (this.connectedPlayers.size === 0) {
+      this.fullReset();
+      return;
+    }
+
+    if (this.phase === 'playing') {
+      // Check win condition
+      const winnerId = this.combatSystem.checkWinCondition(this.players);
+      if (winnerId) {
+        this.handleGameOver(winnerId);
+      }
+    } else if (this.phase === 'countdown') {
+      // Check if we still have enough players for next game
+      if (this.connectedPlayers.size < GAME.MIN_PLAYERS_TO_START) {
+        // Cancel countdown and go back to waiting
+        this.stopCountdown();
+        this.phase = 'waiting_for_players';
+        console.log('[GameRoom] Not enough players, returning to waiting state');
+        this.broadcastPhase();
+      }
+    } else if (this.phase === 'waiting_for_players') {
+      // Update player count
+      this.broadcastPhase();
+    }
+  }
+
+  private setRandomSpawnPosition(player: PlayerState): void {
     // Randomize spawn position, avoiding the central platform (X: -6 to 6, Z: -6 to 6)
     let spawnX: number;
     let spawnZ: number;
@@ -91,45 +174,113 @@ export class GameRoom {
     player.position.x = spawnX;
     player.position.z = spawnZ;
     player.position.y = PHYSICS.PLAYER_HEIGHT / 2;
-
-    this.players.set(playerId, player);
-    this.pendingInputs.set(playerId, []);
-
-    console.log(`[GameRoom] Added player ${playerName} at position (${player.position.x.toFixed(2)}, ${player.position.z.toFixed(2)})`);
   }
 
-  removePlayer(playerId: PlayerId): void {
-    this.players.delete(playerId);
-    this.pendingInputs.delete(playerId);
+  private checkAutoStart(): void {
+    if (this.phase !== 'waiting_for_players') return;
 
-    // If room is now empty, reset for the next game
-    if (this.players.size === 0) {
-      this.reset();
+    if (this.connectedPlayers.size >= GAME.MIN_PLAYERS_TO_START) {
+      this.startNewGame();
+    }
+  }
+
+  private handleGameOver(winnerId: PlayerId): void {
+    const winner = this.players.get(winnerId);
+    const winnerName = winner?.name ?? 'Unknown';
+
+    // Broadcast game over
+    const gameOverMessage: GameOverMessage = {
+      type: ServerMessageType.GAME_OVER,
+      winnerId,
+      winnerName,
+    };
+    this.broadcast(gameOverMessage);
+
+    console.log(`[GameRoom] Game over! Winner: ${winnerName}`);
+
+    // Start countdown for next game
+    this.startCountdown();
+  }
+
+  private startCountdown(): void {
+    this.phase = 'countdown';
+    this.countdownSeconds = GAME.COUNTDOWN_SECONDS;
+
+    this.broadcastPhase();
+    this.broadcastCountdown();
+
+    this.countdownIntervalId = setInterval(() => {
+      this.countdownSeconds--;
+
+      if (this.countdownSeconds <= 0) {
+        this.stopCountdown();
+        this.startNewGame();
+      } else {
+        this.broadcastCountdown();
+      }
+    }, 1000);
+  }
+
+  private stopCountdown(): void {
+    if (this.countdownIntervalId) {
+      clearInterval(this.countdownIntervalId);
+      this.countdownIntervalId = null;
+    }
+  }
+
+  private startNewGame(): void {
+    // Check minimum players
+    if (this.connectedPlayers.size < GAME.MIN_PLAYERS_TO_START) {
+      this.phase = 'waiting_for_players';
+      this.broadcastPhase();
+      console.log('[GameRoom] Not enough players to start new game');
       return;
     }
 
-    // Check win condition after player disconnects
-    if (!this.gameOver) {
-      const winnerId = this.combatSystem.checkWinCondition(this.players);
-      if (winnerId) {
-        const winner = this.players.get(winnerId);
-        const gameOverMessage: GameOverMessage = {
-          type: ServerMessageType.GAME_OVER,
-          winnerId,
-          winnerName: winner?.name ?? 'Unknown',
-        };
-        this.broadcast(gameOverMessage);
-        this.gameOver = true;
-        console.log(`[GameRoom] Game over! Winner: ${winner?.name} (opponent disconnected)`);
-      }
-    }
-  }
-
-  private reset(): void {
-    this.gameOver = false;
+    // Reset game state
     this.projectiles.clear();
     this.currentTick = 0;
-    console.log('[GameRoom] Room reset for new game');
+    this.players.clear();
+
+    // Respawn all connected players
+    for (const [playerId, { name }] of this.connectedPlayers) {
+      const player = createDefaultPlayerState(playerId, name);
+      this.setRandomSpawnPosition(player);
+      this.players.set(playerId, player);
+      this.pendingInputs.set(playerId, []);
+    }
+
+    this.phase = 'playing';
+    this.broadcastPhase();
+
+    console.log(`[GameRoom] New game started with ${this.players.size} players`);
+  }
+
+  private fullReset(): void {
+    this.stopCountdown();
+    this.phase = 'waiting_for_players';
+    this.projectiles.clear();
+    this.players.clear();
+    this.currentTick = 0;
+    console.log('[GameRoom] Room fully reset - all players left');
+  }
+
+  private broadcastPhase(): void {
+    const message: GamePhaseUpdateMessage = {
+      type: ServerMessageType.GAME_PHASE_UPDATE,
+      phase: this.phase,
+      minPlayers: GAME.MIN_PLAYERS_TO_START,
+      currentPlayers: this.connectedPlayers.size,
+    };
+    this.broadcast(message);
+  }
+
+  private broadcastCountdown(): void {
+    const message: CountdownUpdateMessage = {
+      type: ServerMessageType.COUNTDOWN_UPDATE,
+      secondsRemaining: this.countdownSeconds,
+    };
+    this.broadcast(message);
   }
 
   handleInput(playerId: PlayerId, input: InputState): void {
@@ -141,6 +292,14 @@ export class GameRoom {
 
   private tick(): void {
     this.currentTick++;
+
+    // Always broadcast state so clients can render
+    // But only process game logic during 'playing' phase
+    if (this.phase !== 'playing') {
+      this.broadcastState();
+      return;
+    }
+
     const deltaSeconds = NETWORK.TICK_INTERVAL_MS / 1000;
 
     // Process all pending inputs
@@ -327,18 +486,10 @@ export class GameRoom {
     this.broadcast(deathMessage);
 
     // Check win condition
-    if (!this.gameOver) {
+    if (this.phase === 'playing') {
       const winnerId = this.combatSystem.checkWinCondition(this.players);
       if (winnerId) {
-        const winner = this.players.get(winnerId);
-        const gameOverMessage: GameOverMessage = {
-          type: ServerMessageType.GAME_OVER,
-          winnerId,
-          winnerName: winner?.name ?? 'Unknown',
-        };
-        this.broadcast(gameOverMessage);
-        this.gameOver = true;
-        console.log(`[GameRoom] Game over! Winner: ${winner?.name}`);
+        this.handleGameOver(winnerId);
       }
     }
   }

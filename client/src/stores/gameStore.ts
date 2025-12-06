@@ -8,6 +8,9 @@ import {
   ClientMessageType,
   PlayerId,
   Vec3,
+  GamePhase,
+  GamePhaseUpdateMessage,
+  CountdownUpdateMessage,
   NETWORK,
 } from '@wizard-zone/shared';
 
@@ -51,6 +54,12 @@ interface GameStore {
   remotePlayers: Map<PlayerId, PlayerState>;
   projectiles: ProjectileState[];
 
+  // Game phase state
+  gamePhase: GamePhase;
+  countdownSeconds: number;
+  currentPlayerCount: number;
+  minPlayers: number;
+
   // Death and game over state
   isSpectating: boolean;
   spectateTargetId: PlayerId | null;
@@ -71,6 +80,7 @@ interface GameStore {
   // Actions
   connect: (url: string, playerName: string) => void;
   disconnect: () => void;
+  returnToMenu: () => void;
   sendInput: (input: InputState) => void;
   addToInputHistory: (input: InputState) => void;
   setLook: (yaw: number, pitch: number) => void;
@@ -89,6 +99,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   localPlayer: null,
   remotePlayers: new Map(),
   projectiles: [],
+
+  gamePhase: 'waiting_for_players',
+  countdownSeconds: 0,
+  currentPlayerCount: 0,
+  minPlayers: 2,
 
   isSpectating: false,
   spectateTargetId: null,
@@ -134,6 +149,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         playerId: null,
         localPlayer: null,
         remotePlayers: new Map(),
+        gamePhase: 'waiting_for_players',
+        countdownSeconds: 0,
+        currentPlayerCount: 0,
         isSpectating: false,
         spectateTargetId: null,
         killFeed: [],
@@ -154,6 +172,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       socket: null,
       playerId: null,
     });
+  },
+
+  returnToMenu: () => {
+    const { socket } = get();
+    socket?.close();
+    // The socket.onclose handler will reset all state
   },
 
   sendInput: (input: InputState) => {
@@ -305,6 +329,34 @@ function handleServerMessage(
           winnerName: message.winnerName,
         },
       });
+      break;
+    }
+
+    case ServerMessageType.GAME_PHASE_UPDATE: {
+      const phaseMessage = message as GamePhaseUpdateMessage;
+      console.log('[GameStore] Game phase update:', phaseMessage.phase);
+
+      const newState: Partial<GameStore> = {
+        gamePhase: phaseMessage.phase,
+        minPlayers: phaseMessage.minPlayers,
+        currentPlayerCount: phaseMessage.currentPlayers,
+      };
+
+      // Reset death/spectate/gameOver state when new game starts
+      if (phaseMessage.phase === 'playing') {
+        newState.isSpectating = false;
+        newState.spectateTargetId = null;
+        newState.gameOver = null;
+        newState.killFeed = [];
+      }
+
+      set(newState);
+      break;
+    }
+
+    case ServerMessageType.COUNTDOWN_UPDATE: {
+      const countdownMessage = message as CountdownUpdateMessage;
+      set({ countdownSeconds: countdownMessage.secondsRemaining });
       break;
     }
 
