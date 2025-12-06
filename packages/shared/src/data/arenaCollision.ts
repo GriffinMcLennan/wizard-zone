@@ -31,11 +31,12 @@ function createCylinder(
 }
 
 // Arena boundary walls (only the outer arena walls)
+const WALL_HEIGHT = 15;
 const walls: CollisionAABB[] = [
-  createAABB([0, 2, -ARENA_SIZE / 2], [ARENA_SIZE, 4, 1]),  // North
-  createAABB([0, 2, ARENA_SIZE / 2], [ARENA_SIZE, 4, 1]),   // South
-  createAABB([-ARENA_SIZE / 2, 2, 0], [1, 4, ARENA_SIZE]),  // West
-  createAABB([ARENA_SIZE / 2, 2, 0], [1, 4, ARENA_SIZE]),   // East
+  createAABB([0, WALL_HEIGHT / 2, -ARENA_SIZE / 2], [ARENA_SIZE, WALL_HEIGHT, 1]),  // North
+  createAABB([0, WALL_HEIGHT / 2, ARENA_SIZE / 2], [ARENA_SIZE, WALL_HEIGHT, 1]),   // South
+  createAABB([-ARENA_SIZE / 2, WALL_HEIGHT / 2, 0], [1, WALL_HEIGHT, ARENA_SIZE]),  // West
+  createAABB([ARENA_SIZE / 2, WALL_HEIGHT / 2, 0], [1, WALL_HEIGHT, ARENA_SIZE]),   // East
 ];
 
 // Platforms (landable from above, also block horizontal movement)

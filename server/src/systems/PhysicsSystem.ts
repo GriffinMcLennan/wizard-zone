@@ -84,12 +84,27 @@ export class PhysicsSystem {
     const worldX = localX * cosYaw + localZ * sinYaw;
     const worldZ = -localX * sinYaw + localZ * cosYaw;
 
-    // Apply movement speed with air control factor
-    const control = player.isGrounded ? 1.0 : PHYSICS.AIR_CONTROL;
-    const speed = PHYSICS.PLAYER_SPEED * control;
+    if (player.isGrounded) {
+      // Grounded: direct velocity control
+      player.velocity.x = worldX * PHYSICS.PLAYER_SPEED;
+      player.velocity.z = worldZ * PHYSICS.PLAYER_SPEED;
+    } else if (length > 0) {
+      // Airborne: additive air control - add force toward input direction
+      // This preserves momentum while allowing some steering
+      const airAccel = PHYSICS.PLAYER_SPEED * PHYSICS.AIR_CONTROL;
+      player.velocity.x += worldX * airAccel;
+      player.velocity.z += worldZ * airAccel;
 
-    player.velocity.x = worldX * speed;
-    player.velocity.z = worldZ * speed;
+      // Cap horizontal speed to prevent runaway acceleration
+      const horizontalSpeed = Math.sqrt(
+        player.velocity.x * player.velocity.x + player.velocity.z * player.velocity.z
+      );
+      if (horizontalSpeed > PHYSICS.PLAYER_SPEED) {
+        const scale = PHYSICS.PLAYER_SPEED / horizontalSpeed;
+        player.velocity.x *= scale;
+        player.velocity.z *= scale;
+      }
+    }
   }
 
   applyJump(player: PlayerState): boolean {

@@ -47,10 +47,10 @@ export function Arena() {
       <gridHelper args={[ARENA_SIZE, 30, '#3a5a4a', '#2a4a3a']} position={[0, 0.01, 0]} />
 
       {/* Arena boundary walls */}
-      <Platform position={[0, 2, -ARENA_SIZE / 2]} size={[ARENA_SIZE, 4, 1]} color={WALL_COLOR} />
-      <Platform position={[0, 2, ARENA_SIZE / 2]} size={[ARENA_SIZE, 4, 1]} color={WALL_COLOR} />
-      <Platform position={[-ARENA_SIZE / 2, 2, 0]} size={[1, 4, ARENA_SIZE]} color={WALL_COLOR} />
-      <Platform position={[ARENA_SIZE / 2, 2, 0]} size={[1, 4, ARENA_SIZE]} color={WALL_COLOR} />
+      <Platform position={[0, 7.5, -ARENA_SIZE / 2]} size={[ARENA_SIZE, 15, 1]} color={WALL_COLOR} />
+      <Platform position={[0, 7.5, ARENA_SIZE / 2]} size={[ARENA_SIZE, 15, 1]} color={WALL_COLOR} />
+      <Platform position={[-ARENA_SIZE / 2, 7.5, 0]} size={[1, 15, ARENA_SIZE]} color={WALL_COLOR} />
+      <Platform position={[ARENA_SIZE / 2, 7.5, 0]} size={[1, 15, ARENA_SIZE]} color={WALL_COLOR} />
 
       {/* Central elevated platform */}
       <Platform position={[0, 2, 0]} size={[12, 0.5, 12]} />
