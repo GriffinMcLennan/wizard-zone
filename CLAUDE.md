@@ -35,7 +35,7 @@ wizard_zone_v2/
 │       │   ├── data/
 │       │   │   └── arenaCollision.ts # ARENA_COLLISION data (platforms, walls, cylinders)
 │       │   └── utils/
-│       │       └── collisionMath.ts  # Collision detection helpers
+│       │       └── collisionMath.ts  # Collision detection (2D for players, 3D for projectiles)
 ├── client/
 │   ├── src/
 │   │   ├── main.tsx
@@ -81,7 +81,7 @@ The server runs the authoritative game simulation at 60Hz. Clients send inputs, 
 **Game Loop** (`server/src/game/GameRoom.ts`):
 1. Process pending inputs from all players
 2. Update physics (gravity, movement, arena collision)
-3. Update projectiles (position, lifetime)
+3. Update projectiles (position, lifetime, arena collision)
 4. Check projectile-player collisions
 5. Apply damage, check for deaths
 6. Check win condition
@@ -178,6 +178,13 @@ const worldZ = -localX * sinYaw + localZ * cosYaw;
 ```
 
 ### `server/src/systems/ProjectileSystem.ts`
+
+Handles projectile creation, movement, lifetime, and arena collision. Projectiles are destroyed when they hit walls, platforms, or cylinders.
+
+Key methods:
+- `createProjectile()`: Spawns projectile in front of player at eye level
+- `update()`: Moves projectiles, checks arena collision, handles lifetime/bounds expiration
+- `checkArenaCollision()`: Uses `sphereOverlapsAABB()` and `sphereOverlapsCylinder()` from shared utils
 
 **Projectile Direction Formula** (critical for bugs):
 ```typescript
