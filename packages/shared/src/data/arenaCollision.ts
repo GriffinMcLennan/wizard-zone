@@ -30,31 +30,21 @@ function createCylinder(
   };
 }
 
-// Arena boundary walls (solid blockers)
+// Arena boundary walls (only the outer arena walls)
 const walls: CollisionAABB[] = [
-  // North wall (negative Z)
-  createAABB([0, 2, -ARENA_SIZE / 2], [ARENA_SIZE, 4, 1]),
-  // South wall (positive Z)
-  createAABB([0, 2, ARENA_SIZE / 2], [ARENA_SIZE, 4, 1]),
-  // West wall (negative X)
-  createAABB([-ARENA_SIZE / 2, 2, 0], [1, 4, ARENA_SIZE]),
-  // East wall (positive X)
-  createAABB([ARENA_SIZE / 2, 2, 0], [1, 4, ARENA_SIZE]),
+  createAABB([0, 2, -ARENA_SIZE / 2], [ARENA_SIZE, 4, 1]),  // North
+  createAABB([0, 2, ARENA_SIZE / 2], [ARENA_SIZE, 4, 1]),   // South
+  createAABB([-ARENA_SIZE / 2, 2, 0], [1, 4, ARENA_SIZE]),  // West
+  createAABB([ARENA_SIZE / 2, 2, 0], [1, 4, ARENA_SIZE]),   // East
+];
 
-  // Cover obstacles in open areas (block horizontal movement)
+// Platforms (landable from above, also block horizontal movement)
+const platforms: CollisionAABB[] = [
+  // Cover obstacles near center (min.y=0, max.y=1.5)
   createAABB([-12, 0.75, 0], [2, 1.5, 4]),
   createAABB([12, 0.75, 0], [2, 1.5, 4]),
   createAABB([0, 0.75, -12], [4, 1.5, 2]),
   createAABB([0, 0.75, 12], [4, 1.5, 2]),
-];
-
-// Platforms (landable surfaces - you can land on from above)
-const platforms: CollisionAABB[] = [
-  // Thin platform caps on top of cover obstacles (surface at Y=1.5)
-  createAABB([-12, 1.5, 0], [2, 0.1, 4]),
-  createAABB([12, 1.5, 0], [2, 0.1, 4]),
-  createAABB([0, 1.5, -12], [4, 0.1, 2]),
-  createAABB([0, 1.5, 12], [4, 0.1, 2]),
 
   // Central elevated platform (Y=2, height=0.5)
   createAABB([0, 2, 0], [12, 0.5, 12]),
