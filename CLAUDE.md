@@ -26,11 +26,16 @@ wizard_zone_v2/
 │       │   │   ├── projectile.ts # ProjectileState
 │       │   │   ├── input.ts     # InputState, MovementInput, ActionInput
 │       │   │   ├── messages.ts  # Server/Client message types
-│       │   │   └── vectors.ts   # Vec3
-│       │   └── constants/
-│       │       ├── network.ts   # TICK_RATE, ports
-│       │       ├── physics.ts   # GRAVITY, PLAYER_SPEED, etc.
-│       │       └── abilities.ts # DASH, LAUNCH_JUMP, PRIMARY_FIRE
+│       │   │   ├── vectors.ts   # Vec3
+│       │   │   └── collision.ts # CollisionAABB, CollisionCylinder, CollisionResult
+│       │   ├── constants/
+│       │   │   ├── network.ts   # TICK_RATE, ports
+│       │   │   ├── physics.ts   # GRAVITY, PLAYER_SPEED, etc.
+│       │   │   └── abilities.ts # DASH, LAUNCH_JUMP, PRIMARY_FIRE
+│       │   ├── data/
+│       │   │   └── arenaCollision.ts # ARENA_COLLISION data (platforms, walls, cylinders)
+│       │   └── utils/
+│       │       └── collisionMath.ts  # Collision detection helpers
 ├── client/
 │   ├── src/
 │   │   ├── main.tsx
@@ -40,10 +45,10 @@ wizard_zone_v2/
 │   │   │   │   ├── HUD.tsx           # Health bar, abilities, kill feed
 │   │   │   │   ├── MainMenu.tsx      # Join game screen
 │   │   │   │   ├── DeathOverlay.tsx  # Spectator mode overlay
-│   │   │   │   └── GameOverScreen.tsx # Winner announcement
+│       │   │   └── GameOverScreen.tsx # Winner announcement
 │   │   │   └── three/
 │   │   │       ├── Scene.tsx         # Main 3D scene, cameras, players
-│   │   │       ├── Arena.tsx         # Ground, platforms, walls
+│   │   │       ├── Arena.tsx         # Ground, platforms, walls, pillars (visual only)
 │   │   │       ├── Projectiles.tsx   # Fireball rendering with effects
 │   │   │       └── InputController.tsx # Sends inputs at 60Hz
 │   │   ├── hooks/
@@ -58,10 +63,11 @@ wizard_zone_v2/
     │   ├── game/
     │   │   └── GameRoom.ts       # Game loop, state management
     │   └── systems/
-    │       ├── PhysicsSystem.ts  # Movement, gravity, abilities
-    │       ├── ProjectileSystem.ts # Projectile creation, movement
-    │       ├── CollisionSystem.ts  # Hit detection, player pushing
-    │       └── CombatSystem.ts     # Damage, death, win condition
+    │       ├── PhysicsSystem.ts       # Movement, gravity, abilities
+    │       ├── ArenaCollisionSystem.ts # Platform/wall/pillar collision
+    │       ├── ProjectileSystem.ts    # Projectile creation, movement
+    │       ├── CollisionSystem.ts     # Hit detection, player pushing
+    │       └── CombatSystem.ts        # Damage, death, win condition
     └── __tests__/
         └── systems/              # Unit tests for all systems
 ```
@@ -74,7 +80,7 @@ The server runs the authoritative game simulation at 60Hz. Clients send inputs, 
 
 **Game Loop** (`server/src/game/GameRoom.ts`):
 1. Process pending inputs from all players
-2. Update physics (gravity, movement)
+2. Update physics (gravity, movement, arena collision)
 3. Update projectiles (position, lifetime)
 4. Check projectile-player collisions
 5. Apply damage, check for deaths
@@ -181,6 +187,28 @@ const dirY = sinPitch;
 const dirZ = -cosYaw * cosPitch;
 ```
 
+### `server/src/systems/ArenaCollisionSystem.ts`
+
+Handles collision with arena geometry (platforms, walls, pillars). Called by PhysicsSystem after position integration.
+
+**Algorithm:**
+1. **Horizontal blocking**: Push player out of walls, platforms, and cylinders
+2. **Landing**: When falling (vy <= 0), snap to highest valid surface
+3. **Ceiling**: Stop upward velocity when head hits platform underside
+4. **Ground fallback**: Snap to Y=0 if nothing else caught the player
+
+**Key collision types:**
+- `CollisionAABB`: Axis-aligned bounding box (platforms, walls, obstacles)
+- `CollisionCylinder`: Cylindrical pillars
+
+### `packages/shared/src/data/arenaCollision.ts`
+
+Defines all collision geometry. Visual geometry in `Arena.tsx` must match!
+
+- `walls[]`: Outer arena boundary (4 walls)
+- `platforms[]`: All landable surfaces (cover obstacles, elevated platforms, etc.)
+- `cylinders[]`: Decorative pillars (4 near center)
+
 ### `client/src/stores/gameStore.ts`
 
 Zustand store containing:
@@ -220,6 +248,16 @@ Handles:
 4. Handle differently in collision/damage if needed
 5. Add visual variant in `client/src/components/three/Projectiles.tsx`
 
+### Adding New Arena Geometry
+
+1. Add visual mesh in `client/src/components/three/Arena.tsx`
+2. Add collision data in `packages/shared/src/data/arenaCollision.ts`:
+   - Use `createAABB([x, y, z], [width, height, depth])` for boxes
+   - Add to `platforms[]` if landable from above
+   - Add to `walls[]` if only blocking (not landable)
+   - Use `createCylinder([x, y, z], height, radius)` for pillars
+3. Rebuild shared: `npm run build:shared` (or use `npm run dev` for auto-rebuild)
+
 ### Debugging Movement Issues
 
 Movement bugs are usually in:
@@ -240,15 +278,20 @@ Movement bugs are usually in:
 # Install dependencies
 npm install
 
-# Build shared package (required first time)
-npm run build -w @wizard-zone/shared
+# Development (builds shared + watches all packages)
+npm run dev
 
-# Development (run in separate terminals)
+# This runs concurrently:
+# - watch:shared (rebuilds shared package on changes)
+# - dev:server (tsx watch)
+# - dev:client (vite)
+
+# Or run individually
 npm run dev:server
 npm run dev:client
 
-# Or run both with a single command
-npm run dev
+# Build shared package manually (if needed)
+npm run build:shared
 
 # Run tests
 npm run test:server
@@ -256,6 +299,8 @@ npm run test:server
 # Build all
 npm run build
 ```
+
+**Important**: The shared package must be rebuilt when its files change. `npm run dev` handles this automatically with watch mode.
 
 ## Network Protocol
 
@@ -283,8 +328,7 @@ npm run build
 3. **Single room**: All players join the same game room
 4. **No reconnection**: Disconnected players can't rejoin
 5. **No lobby/ready system**: Game starts immediately when players join
-6. **No arena collision**: Players can walk through platforms (only ground collision)
-7. **Simple hitboxes**: Players use sphere approximation, not capsules
+6. **Simple hitboxes**: Players use sphere approximation, not capsules
 
 ## Testing
 
