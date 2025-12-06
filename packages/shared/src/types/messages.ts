@@ -1,0 +1,99 @@
+import type { InputState } from './input.js';
+import type { PlayerState, PlayerId } from './player.js';
+import type { ProjectileState } from './projectile.js';
+
+// ============ Client -> Server Messages ============
+
+export enum ClientMessageType {
+  JOIN_GAME = 'join_game',
+  INPUT = 'input',
+  PING = 'ping',
+}
+
+export interface JoinGameMessage {
+  type: ClientMessageType.JOIN_GAME;
+  playerName: string;
+}
+
+export interface InputMessage {
+  type: ClientMessageType.INPUT;
+  input: InputState;
+}
+
+export interface PingMessage {
+  type: ClientMessageType.PING;
+  clientTime: number;
+}
+
+export type ClientMessage = JoinGameMessage | InputMessage | PingMessage;
+
+// ============ Server -> Client Messages ============
+
+export enum ServerMessageType {
+  WELCOME = 'welcome',
+  GAME_STATE = 'game_state',
+  PLAYER_JOINED = 'player_joined',
+  PLAYER_LEFT = 'player_left',
+  PLAYER_DIED = 'player_died',
+  GAME_OVER = 'game_over',
+  PONG = 'pong',
+  ERROR = 'error',
+}
+
+export interface WelcomeMessage {
+  type: ServerMessageType.WELCOME;
+  playerId: PlayerId;
+  serverTick: number;
+  tickRate: number;
+}
+
+export interface GameStateMessage {
+  type: ServerMessageType.GAME_STATE;
+  tick: number;
+  timestamp: number;
+  players: Record<PlayerId, PlayerState>;
+  projectiles: ProjectileState[];
+}
+
+export interface PlayerJoinedMessage {
+  type: ServerMessageType.PLAYER_JOINED;
+  player: PlayerState;
+}
+
+export interface PlayerLeftMessage {
+  type: ServerMessageType.PLAYER_LEFT;
+  playerId: PlayerId;
+}
+
+export interface PlayerDiedMessage {
+  type: ServerMessageType.PLAYER_DIED;
+  playerId: PlayerId;
+  killerId: PlayerId;
+}
+
+export interface GameOverMessage {
+  type: ServerMessageType.GAME_OVER;
+  winnerId: PlayerId;
+  winnerName: string;
+}
+
+export interface PongMessage {
+  type: ServerMessageType.PONG;
+  clientTime: number;
+  serverTime: number;
+}
+
+export interface ErrorMessage {
+  type: ServerMessageType.ERROR;
+  message: string;
+}
+
+export type ServerMessage =
+  | WelcomeMessage
+  | GameStateMessage
+  | PlayerJoinedMessage
+  | PlayerLeftMessage
+  | PlayerDiedMessage
+  | GameOverMessage
+  | PongMessage
+  | ErrorMessage;

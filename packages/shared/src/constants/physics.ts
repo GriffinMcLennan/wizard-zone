@@ -1,0 +1,11 @@
+export const PHYSICS = {
+  PLAYER_SPEED: 8,
+  JUMP_VELOCITY: 10,
+  GRAVITY: -25,
+  GROUND_FRICTION: 0.9,
+  AIR_CONTROL: 0.3,
+  PLAYER_HEIGHT: 1.8,
+  PLAYER_RADIUS: 0.4,
+  MAX_PITCH: Math.PI / 2 - 0.1,
+  GROUND_LEVEL: 0,
+} as const;

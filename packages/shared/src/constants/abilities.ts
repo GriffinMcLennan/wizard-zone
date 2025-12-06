@@ -1,0 +1,24 @@
+export const ABILITIES = {
+  DASH: {
+    COOLDOWN_MS: 3000,
+    DISTANCE: 8,
+    DURATION_MS: 150,
+  },
+  LAUNCH_JUMP: {
+    COOLDOWN_MS: 5000,
+    VERTICAL_VELOCITY: 20,
+    HORIZONTAL_BOOST: 5,
+  },
+  PRIMARY_FIRE: {
+    COOLDOWN_MS: 500,
+    PROJECTILE_SPEED: 30,
+    DAMAGE: 25,
+    LIFETIME_MS: 3000,
+    RADIUS: 0.3,
+  },
+} as const;
+
+export const PLAYER = {
+  MAX_HEALTH: 100,
+  SPAWN_HEALTH: 100,
+} as const;
