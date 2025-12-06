@@ -5,12 +5,16 @@ import {
   GameStateMessage,
   ServerMessageType,
   ProjectileState,
+  PlayerDiedMessage,
+  GameOverMessage,
   createDefaultPlayerState,
   NETWORK,
   PHYSICS,
 } from '@wizard-zone/shared';
 import { PhysicsSystem } from '../systems/PhysicsSystem.js';
 import { ProjectileSystem } from '../systems/ProjectileSystem.js';
+import { CollisionSystem } from '../systems/CollisionSystem.js';
+import { CombatSystem } from '../systems/CombatSystem.js';
 
 type BroadcastFn = (message: object) => void;
 
@@ -23,14 +27,19 @@ export class GameRoom {
   private running = false;
   private broadcast: BroadcastFn = () => {};
   private intervalId: NodeJS.Timeout | null = null;
+  private gameOver = false;
 
   private physicsSystem: PhysicsSystem;
   private projectileSystem: ProjectileSystem;
+  private collisionSystem: CollisionSystem;
+  private combatSystem: CombatSystem;
 
   constructor(roomId: string) {
     this.roomId = roomId;
     this.physicsSystem = new PhysicsSystem();
     this.projectileSystem = new ProjectileSystem();
+    this.collisionSystem = new CollisionSystem();
+    this.combatSystem = new CombatSystem();
   }
 
   setBroadcaster(fn: BroadcastFn): void {
@@ -106,6 +115,55 @@ export class GameRoom {
     for (const id of expiredProjectiles) {
       this.projectiles.delete(id);
     }
+
+    // Check projectile-player collisions
+    const hits = this.collisionSystem.checkProjectileCollisions(
+      this.players,
+      this.projectiles
+    );
+
+    // Process hits - apply damage and remove projectiles
+    for (const hit of hits) {
+      // Remove the projectile that hit
+      this.projectiles.delete(hit.projectileId);
+
+      // Apply damage (ownerId is already in the hit result)
+      const death = this.combatSystem.applyHit(
+        this.players,
+        hit.playerId,
+        hit.ownerId,
+        hit.damage
+      );
+
+      if (death) {
+        // Broadcast death event
+        const deathMessage: PlayerDiedMessage = {
+          type: ServerMessageType.PLAYER_DIED,
+          playerId: death.victimId,
+          killerId: death.killerId,
+        };
+        this.broadcast(deathMessage);
+
+        // Check win condition
+        if (!this.gameOver) {
+          const winnerId = this.combatSystem.checkWinCondition(this.players);
+          if (winnerId) {
+            const winner = this.players.get(winnerId);
+            const gameOverMessage: GameOverMessage = {
+              type: ServerMessageType.GAME_OVER,
+              winnerId,
+              winnerName: winner?.name ?? 'Unknown',
+            };
+            this.broadcast(gameOverMessage);
+            this.gameOver = true;
+            console.log(`[GameRoom] Game over! Winner: ${winner?.name}`);
+          }
+        }
+      }
+    }
+
+    // Resolve player-player collisions (push apart)
+    this.collisionSystem.resolvePlayerCollisions(this.players);
 
     // Update ability cooldowns
     this.projectileSystem.updateCooldowns(this.players, this.currentTick);

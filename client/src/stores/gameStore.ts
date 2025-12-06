@@ -12,6 +12,19 @@ import {
 
 type ConnectionState = 'disconnected' | 'connecting' | 'connected';
 
+interface DeathInfo {
+  victimId: PlayerId;
+  victimName: string;
+  killerId: PlayerId;
+  killerName: string;
+  timestamp: number;
+}
+
+interface GameOverInfo {
+  winnerId: PlayerId;
+  winnerName: string;
+}
+
 interface GameStore {
   // Connection state
   connectionState: ConnectionState;
@@ -24,6 +37,12 @@ interface GameStore {
   localPlayer: PlayerState | null;
   remotePlayers: Map<PlayerId, PlayerState>;
   projectiles: ProjectileState[];
+
+  // Death and game over state
+  isSpectating: boolean;
+  spectateTargetId: PlayerId | null;
+  killFeed: DeathInfo[];
+  gameOver: GameOverInfo | null;
 
   // Local look direction (client-authoritative for responsiveness)
   lookYaw: number;
@@ -38,6 +57,7 @@ interface GameStore {
   sendInput: (input: InputState) => void;
   addToInputHistory: (input: InputState) => void;
   setLook: (yaw: number, pitch: number) => void;
+  cycleSpectateTarget: (direction: 1 | -1) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -50,6 +70,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   localPlayer: null,
   remotePlayers: new Map(),
   projectiles: [],
+
+  isSpectating: false,
+  spectateTargetId: null,
+  killFeed: [],
+  gameOver: null,
 
   lookYaw: 0,
   lookPitch: 0,
@@ -87,6 +112,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         playerId: null,
         localPlayer: null,
         remotePlayers: new Map(),
+        isSpectating: false,
+        spectateTargetId: null,
+        killFeed: [],
+        gameOver: null,
       });
     };
 
@@ -125,6 +154,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setLook: (yaw: number, pitch: number) => {
     set({ lookYaw: yaw, lookPitch: pitch });
+  },
+
+  cycleSpectateTarget: (direction: 1 | -1) => {
+    const { remotePlayers, spectateTargetId } = get();
+    const alivePlayers = Array.from(remotePlayers.values()).filter(p => p.isAlive);
+
+    if (alivePlayers.length === 0) {
+      set({ spectateTargetId: null });
+      return;
+    }
+
+    const currentIndex = spectateTargetId
+      ? alivePlayers.findIndex(p => p.id === spectateTargetId)
+      : -1;
+
+    let newIndex: number;
+    if (currentIndex === -1) {
+      newIndex = 0;
+    } else {
+      newIndex = (currentIndex + direction + alivePlayers.length) % alivePlayers.length;
+    }
+
+    const targetPlayer = alivePlayers[newIndex];
+    set({ spectateTargetId: targetPlayer?.id ?? null });
   },
 }));
 
@@ -173,12 +226,52 @@ function handleServerMessage(
       break;
     }
 
-    case ServerMessageType.PLAYER_DIED:
-      console.log('[GameStore] Player died:', message.playerId);
-      break;
+    case ServerMessageType.PLAYER_DIED: {
+      const { playerId, remotePlayers } = get();
+      const victim = message.playerId === playerId
+        ? get().localPlayer
+        : remotePlayers.get(message.playerId);
+      const killer = message.killerId === playerId
+        ? get().localPlayer
+        : remotePlayers.get(message.killerId);
 
-    case ServerMessageType.GAME_OVER:
-      console.log('[GameStore] Game over! Winner:', message.winnerName);
+      const deathInfo: DeathInfo = {
+        victimId: message.playerId,
+        victimName: victim?.name ?? 'Unknown',
+        killerId: message.killerId,
+        killerName: killer?.name ?? 'Unknown',
+        timestamp: Date.now(),
+      };
+
+      console.log(`[GameStore] ${deathInfo.victimName} was eliminated by ${deathInfo.killerName}`);
+
+      // Add to kill feed (keep last 5)
+      set((state) => ({
+        killFeed: [...state.killFeed, deathInfo].slice(-5),
+      }));
+
+      // If local player died, enter spectator mode
+      if (message.playerId === playerId) {
+        console.log('[GameStore] You died! Entering spectator mode.');
+        const alivePlayers = Array.from(remotePlayers.values()).filter(p => p.isAlive);
+        const firstAlive = alivePlayers[0];
+        set({
+          isSpectating: true,
+          spectateTargetId: firstAlive?.id ?? null,
+        });
+      }
       break;
+    }
+
+    case ServerMessageType.GAME_OVER: {
+      console.log('[GameStore] Game over! Winner:', message.winnerName);
+      set({
+        gameOver: {
+          winnerId: message.winnerId,
+          winnerName: message.winnerName,
+        },
+      });
+      break;
+    }
   }
 }

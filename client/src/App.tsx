@@ -3,6 +3,8 @@ import { Canvas } from '@react-three/fiber';
 import { Scene } from './components/three/Scene';
 import { HUD } from './components/ui/HUD';
 import { MainMenu } from './components/ui/MainMenu';
+import { DeathOverlay } from './components/ui/DeathOverlay';
+import { GameOverScreen } from './components/ui/GameOverScreen';
 import { useGameStore } from './stores/gameStore';
 
 export function App() {
@@ -22,7 +24,13 @@ export function App() {
         </Suspense>
       </Canvas>
 
-      {connectionState === 'connected' && <HUD />}
+      {connectionState === 'connected' && (
+        <>
+          <HUD />
+          <DeathOverlay />
+          <GameOverScreen />
+        </>
+      )}
     </div>
   );
 }

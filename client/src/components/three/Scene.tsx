@@ -12,14 +12,15 @@ import { PHYSICS } from '@wizard-zone/shared';
 export function Scene() {
   const connectionState = useGameStore((s) => s.connectionState);
   const remotePlayers = useGameStore((s) => s.remotePlayers);
+  const isSpectating = useGameStore((s) => s.isSpectating);
 
   return (
     <>
-      {/* First-person camera controller and input handling */}
+      {/* Camera controller and input handling */}
       {connectionState === 'connected' && (
         <>
-          <FirstPersonCamera />
-          <InputController />
+          {isSpectating ? <SpectatorCamera /> : <FirstPersonCamera />}
+          {!isSpectating && <InputController />}
         </>
       )}
 
@@ -77,6 +78,44 @@ function FirstPersonCamera() {
         localPlayer.position.y + PHYSICS.PLAYER_HEIGHT / 2,
         localPlayer.position.z
       );
+    }
+  });
+
+  return null;
+}
+
+function SpectatorCamera() {
+  const { camera } = useThree();
+  const spectateTargetId = useGameStore((s) => s.spectateTargetId);
+  const remotePlayers = useGameStore((s) => s.remotePlayers);
+  const angleRef = useRef(0);
+
+  // Spectator camera orbits around the target player
+  useFrame((_, delta) => {
+    const target = spectateTargetId ? remotePlayers.get(spectateTargetId) : null;
+
+    if (target) {
+      // Slowly orbit around the target
+      angleRef.current += delta * 0.3;
+
+      const distance = 8;
+      const height = 4;
+
+      camera.position.set(
+        target.position.x + Math.sin(angleRef.current) * distance,
+        target.position.y + height,
+        target.position.z + Math.cos(angleRef.current) * distance
+      );
+
+      camera.lookAt(
+        target.position.x,
+        target.position.y + 1,
+        target.position.z
+      );
+    } else {
+      // No target - look at arena center from above
+      camera.position.set(0, 30, 30);
+      camera.lookAt(0, 0, 0);
     }
   });
 
