@@ -36,15 +36,15 @@ export function useInput() {
   const getLookPitch = () => useGameStore.getState().lookPitch;
 
   // Key mappings
+  // Note: ArrowLeft/ArrowRight are intentionally NOT mapped to movement
+  // They are reserved for cycling spectate targets when dead (see DeathOverlay.tsx)
   const keyMap: Record<string, keyof KeyState> = {
     KeyW: 'forward',
     ArrowUp: 'forward',
     KeyS: 'backward',
     ArrowDown: 'backward',
     KeyA: 'left',
-    ArrowLeft: 'left',
     KeyD: 'right',
-    ArrowRight: 'right',
     Space: 'jump',
     ShiftLeft: 'dash',
     ShiftRight: 'dash',
