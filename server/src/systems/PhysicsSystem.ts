@@ -1,4 +1,4 @@
-import { PlayerState, PHYSICS } from '@wizard-zone/shared';
+import { PlayerState, PHYSICS, ABILITIES } from '@wizard-zone/shared';
 
 export class PhysicsSystem {
   update(players: Map<string, PlayerState>, deltaSeconds: number): void {
@@ -98,5 +98,116 @@ export class PhysicsSystem {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Apply dash ability - burst of speed in movement direction
+   */
+  applyDash(player: PlayerState, yaw: number, currentTick: number): boolean {
+    // Check cooldown
+    const cooldownTicks = Math.ceil(ABILITIES.DASH.COOLDOWN_MS / (1000 / 60));
+    const ticksSinceLastUse = currentTick - player.abilities.dash.lastUsed;
+
+    if (ticksSinceLastUse < cooldownTicks && player.abilities.dash.lastUsed !== 0) {
+      return false;
+    }
+
+    // Calculate dash direction based on current velocity or facing direction
+    let dashDirX: number;
+    let dashDirZ: number;
+
+    const velMagnitude = Math.sqrt(
+      player.velocity.x * player.velocity.x + player.velocity.z * player.velocity.z
+    );
+
+    if (velMagnitude > 0.1) {
+      // Dash in movement direction
+      dashDirX = player.velocity.x / velMagnitude;
+      dashDirZ = player.velocity.z / velMagnitude;
+    } else {
+      // Dash in facing direction
+      dashDirX = -Math.sin(yaw);
+      dashDirZ = -Math.cos(yaw);
+    }
+
+    // Apply dash velocity (instant burst)
+    const dashSpeed = ABILITIES.DASH.DISTANCE / (ABILITIES.DASH.DURATION_MS / 1000);
+    player.velocity.x = dashDirX * dashSpeed;
+    player.velocity.z = dashDirZ * dashSpeed;
+
+    // Record cooldown
+    player.abilities.dash.lastUsed = currentTick;
+    player.abilities.dash.ready = false;
+    player.abilities.dash.cooldownRemaining = ABILITIES.DASH.COOLDOWN_MS;
+
+    return true;
+  }
+
+  /**
+   * Apply launch jump ability - high vertical jump with forward boost
+   */
+  applyLaunchJump(player: PlayerState, yaw: number, currentTick: number): boolean {
+    // Check cooldown
+    const cooldownTicks = Math.ceil(ABILITIES.LAUNCH_JUMP.COOLDOWN_MS / (1000 / 60));
+    const ticksSinceLastUse = currentTick - player.abilities.launchJump.lastUsed;
+
+    if (ticksSinceLastUse < cooldownTicks && player.abilities.launchJump.lastUsed !== 0) {
+      return false;
+    }
+
+    // Must be grounded to launch jump
+    if (!player.isGrounded) {
+      return false;
+    }
+
+    // Apply vertical velocity
+    player.velocity.y = ABILITIES.LAUNCH_JUMP.VERTICAL_VELOCITY;
+
+    // Apply horizontal boost in facing direction
+    const forwardX = -Math.sin(yaw);
+    const forwardZ = -Math.cos(yaw);
+    player.velocity.x += forwardX * ABILITIES.LAUNCH_JUMP.HORIZONTAL_BOOST;
+    player.velocity.z += forwardZ * ABILITIES.LAUNCH_JUMP.HORIZONTAL_BOOST;
+
+    player.isGrounded = false;
+
+    // Record cooldown
+    player.abilities.launchJump.lastUsed = currentTick;
+    player.abilities.launchJump.ready = false;
+    player.abilities.launchJump.cooldownRemaining = ABILITIES.LAUNCH_JUMP.COOLDOWN_MS;
+
+    return true;
+  }
+
+  /**
+   * Update ability cooldowns for all players
+   */
+  updateAbilityCooldowns(players: Map<string, PlayerState>, currentTick: number): void {
+    const dashCooldownTicks = Math.ceil(ABILITIES.DASH.COOLDOWN_MS / (1000 / 60));
+    const launchCooldownTicks = Math.ceil(ABILITIES.LAUNCH_JUMP.COOLDOWN_MS / (1000 / 60));
+
+    for (const player of players.values()) {
+      // Update dash cooldown
+      const dashTicksSince = currentTick - player.abilities.dash.lastUsed;
+      if (dashTicksSince >= dashCooldownTicks) {
+        player.abilities.dash.ready = true;
+        player.abilities.dash.cooldownRemaining = 0;
+      } else {
+        player.abilities.dash.ready = false;
+        const remainingTicks = dashCooldownTicks - dashTicksSince;
+        player.abilities.dash.cooldownRemaining = remainingTicks * (1000 / 60);
+      }
+
+      // Update launch jump cooldown
+      const launchTicksSince = currentTick - player.abilities.launchJump.lastUsed;
+      if (launchTicksSince >= launchCooldownTicks) {
+        player.abilities.launchJump.ready = true;
+        player.abilities.launchJump.cooldownRemaining = 0;
+      } else {
+        player.abilities.launchJump.ready = false;
+        const remainingTicks = launchCooldownTicks - launchTicksSince;
+        player.abilities.launchJump.cooldownRemaining = remainingTicks * (1000 / 60);
+      }
+    }
   }
 }

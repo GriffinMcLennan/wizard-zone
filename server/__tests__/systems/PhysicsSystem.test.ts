@@ -1,5 +1,5 @@
 import { PhysicsSystem } from '../../src/systems/PhysicsSystem.js';
-import { createDefaultPlayerState, PHYSICS } from '@wizard-zone/shared';
+import { createDefaultPlayerState, PHYSICS, ABILITIES } from '@wizard-zone/shared';
 
 describe('PhysicsSystem', () => {
   let physics: PhysicsSystem;
@@ -102,6 +102,196 @@ describe('PhysicsSystem', () => {
 
       expect(jumped).toBe(false);
       expect(player.velocity.y).toBe(5); // Unchanged
+    });
+  });
+
+  describe('dash', () => {
+    it('should apply dash velocity in movement direction', () => {
+      const player = createDefaultPlayerState('test-id', 'TestPlayer');
+      player.isGrounded = true;
+      player.velocity.x = 5;
+      player.velocity.z = 0;
+
+      const dashed = physics.applyDash(player, 0, 100);
+
+      expect(dashed).toBe(true);
+      // Should have significant velocity in X direction (movement dir)
+      expect(Math.abs(player.velocity.x)).toBeGreaterThan(PHYSICS.PLAYER_SPEED);
+    });
+
+    it('should dash in facing direction when stationary', () => {
+      const player = createDefaultPlayerState('test-id', 'TestPlayer');
+      player.velocity.x = 0;
+      player.velocity.z = 0;
+
+      // Facing forward (yaw=0, looking down -Z)
+      const dashed = physics.applyDash(player, 0, 100);
+
+      expect(dashed).toBe(true);
+      expect(player.velocity.z).toBeLessThan(0); // Moving forward (-Z)
+    });
+
+    it('should respect cooldown', () => {
+      const player = createDefaultPlayerState('test-id', 'TestPlayer');
+
+      // First dash should work
+      const firstDash = physics.applyDash(player, 0, 100);
+      expect(firstDash).toBe(true);
+
+      // Immediate second dash should fail
+      const secondDash = physics.applyDash(player, 0, 101);
+      expect(secondDash).toBe(false);
+    });
+
+    it('should allow dash after cooldown expires', () => {
+      const player = createDefaultPlayerState('test-id', 'TestPlayer');
+
+      physics.applyDash(player, 0, 100);
+
+      // After cooldown expires
+      const cooldownTicks = Math.ceil(ABILITIES.DASH.COOLDOWN_MS / (1000 / 60));
+      const dashed = physics.applyDash(player, 0, 100 + cooldownTicks);
+
+      expect(dashed).toBe(true);
+    });
+
+    it('should set cooldown state correctly', () => {
+      const player = createDefaultPlayerState('test-id', 'TestPlayer');
+
+      physics.applyDash(player, 0, 100);
+
+      expect(player.abilities.dash.ready).toBe(false);
+      expect(player.abilities.dash.lastUsed).toBe(100);
+      expect(player.abilities.dash.cooldownRemaining).toBe(ABILITIES.DASH.COOLDOWN_MS);
+    });
+  });
+
+  describe('launchJump', () => {
+    it('should apply high vertical velocity', () => {
+      const player = createDefaultPlayerState('test-id', 'TestPlayer');
+      player.isGrounded = true;
+
+      const launched = physics.applyLaunchJump(player, 0, 100);
+
+      expect(launched).toBe(true);
+      expect(player.velocity.y).toBe(ABILITIES.LAUNCH_JUMP.VERTICAL_VELOCITY);
+      expect(player.isGrounded).toBe(false);
+    });
+
+    it('should apply horizontal boost in facing direction', () => {
+      const player = createDefaultPlayerState('test-id', 'TestPlayer');
+      player.isGrounded = true;
+      player.velocity.x = 0;
+      player.velocity.z = 0;
+
+      // Facing forward (yaw=0)
+      physics.applyLaunchJump(player, 0, 100);
+
+      // Should have forward boost (-Z direction)
+      expect(player.velocity.z).toBeLessThan(0);
+    });
+
+    it('should require player to be grounded', () => {
+      const player = createDefaultPlayerState('test-id', 'TestPlayer');
+      player.isGrounded = false;
+
+      const launched = physics.applyLaunchJump(player, 0, 100);
+
+      expect(launched).toBe(false);
+    });
+
+    it('should respect cooldown', () => {
+      const player = createDefaultPlayerState('test-id', 'TestPlayer');
+      player.isGrounded = true;
+
+      // First launch should work
+      const firstLaunch = physics.applyLaunchJump(player, 0, 100);
+      expect(firstLaunch).toBe(true);
+
+      // Reset grounded for test
+      player.isGrounded = true;
+
+      // Immediate second launch should fail
+      const secondLaunch = physics.applyLaunchJump(player, 0, 101);
+      expect(secondLaunch).toBe(false);
+    });
+
+    it('should allow launch after cooldown expires', () => {
+      const player = createDefaultPlayerState('test-id', 'TestPlayer');
+      player.isGrounded = true;
+
+      physics.applyLaunchJump(player, 0, 100);
+
+      // Reset grounded and wait for cooldown
+      player.isGrounded = true;
+      const cooldownTicks = Math.ceil(ABILITIES.LAUNCH_JUMP.COOLDOWN_MS / (1000 / 60));
+      const launched = physics.applyLaunchJump(player, 0, 100 + cooldownTicks);
+
+      expect(launched).toBe(true);
+    });
+
+    it('should set cooldown state correctly', () => {
+      const player = createDefaultPlayerState('test-id', 'TestPlayer');
+      player.isGrounded = true;
+
+      physics.applyLaunchJump(player, 0, 100);
+
+      expect(player.abilities.launchJump.ready).toBe(false);
+      expect(player.abilities.launchJump.lastUsed).toBe(100);
+      expect(player.abilities.launchJump.cooldownRemaining).toBe(ABILITIES.LAUNCH_JUMP.COOLDOWN_MS);
+    });
+  });
+
+  describe('updateAbilityCooldowns', () => {
+    it('should update dash cooldown remaining', () => {
+      const player = createDefaultPlayerState('test-id', 'TestPlayer');
+      const players = new Map([['test-id', player]]);
+
+      physics.applyDash(player, 0, 100);
+      physics.updateAbilityCooldowns(players, 110);
+
+      expect(player.abilities.dash.ready).toBe(false);
+      expect(player.abilities.dash.cooldownRemaining).toBeGreaterThan(0);
+      expect(player.abilities.dash.cooldownRemaining).toBeLessThan(ABILITIES.DASH.COOLDOWN_MS);
+    });
+
+    it('should set dash ready after cooldown expires', () => {
+      const player = createDefaultPlayerState('test-id', 'TestPlayer');
+      const players = new Map([['test-id', player]]);
+
+      physics.applyDash(player, 0, 100);
+
+      const cooldownTicks = Math.ceil(ABILITIES.DASH.COOLDOWN_MS / (1000 / 60));
+      physics.updateAbilityCooldowns(players, 100 + cooldownTicks);
+
+      expect(player.abilities.dash.ready).toBe(true);
+      expect(player.abilities.dash.cooldownRemaining).toBe(0);
+    });
+
+    it('should update launch jump cooldown remaining', () => {
+      const player = createDefaultPlayerState('test-id', 'TestPlayer');
+      player.isGrounded = true;
+      const players = new Map([['test-id', player]]);
+
+      physics.applyLaunchJump(player, 0, 100);
+      physics.updateAbilityCooldowns(players, 110);
+
+      expect(player.abilities.launchJump.ready).toBe(false);
+      expect(player.abilities.launchJump.cooldownRemaining).toBeGreaterThan(0);
+    });
+
+    it('should set launch jump ready after cooldown expires', () => {
+      const player = createDefaultPlayerState('test-id', 'TestPlayer');
+      player.isGrounded = true;
+      const players = new Map([['test-id', player]]);
+
+      physics.applyLaunchJump(player, 0, 100);
+
+      const cooldownTicks = Math.ceil(ABILITIES.LAUNCH_JUMP.COOLDOWN_MS / (1000 / 60));
+      physics.updateAbilityCooldowns(players, 100 + cooldownTicks);
+
+      expect(player.abilities.launchJump.ready).toBe(true);
+      expect(player.abilities.launchJump.cooldownRemaining).toBe(0);
     });
   });
 });

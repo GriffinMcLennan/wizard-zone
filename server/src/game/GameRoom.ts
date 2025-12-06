@@ -167,6 +167,7 @@ export class GameRoom {
 
     // Update ability cooldowns
     this.projectileSystem.updateCooldowns(this.players, this.currentTick);
+    this.physicsSystem.updateAbilityCooldowns(this.players, this.currentTick);
 
     // Broadcast state to all clients
     this.broadcastState();
@@ -218,7 +219,15 @@ export class GameRoom {
       }
     }
 
-    // Dash and launch jump will be added in Phase 7
+    // Dash ability (Shift)
+    if (input.actions.dash) {
+      this.physicsSystem.applyDash(player, input.look.yaw, this.currentTick);
+    }
+
+    // Launch jump ability (Q)
+    if (input.actions.launchJump) {
+      this.physicsSystem.applyLaunchJump(player, input.look.yaw, this.currentTick);
+    }
   }
 
   private broadcastState(): void {

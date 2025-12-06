@@ -1,3 +1,4 @@
+import { ABILITIES } from '@wizard-zone/shared';
 import { useGameStore } from '../../stores/gameStore';
 
 const styles: Record<string, React.CSSProperties> = {
@@ -109,12 +110,105 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '16px',
     fontWeight: 'bold',
   },
+  abilitiesContainer: {
+    position: 'absolute',
+    bottom: '120px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    gap: '12px',
+  },
+  abilityBox: {
+    width: '60px',
+    height: '60px',
+    background: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: '8px',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  abilityReady: {
+    border: '2px solid #4ade80',
+    boxShadow: '0 0 10px rgba(74, 222, 128, 0.3)',
+  },
+  abilityOnCooldown: {
+    border: '2px solid #64748b',
+    opacity: 0.7,
+  },
+  abilityCooldownOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    background: 'rgba(0, 0, 0, 0.7)',
+    transition: 'height 0.1s linear',
+  },
+  abilityKey: {
+    fontSize: '10px',
+    color: '#94a3b8',
+    marginBottom: '2px',
+    zIndex: 1,
+  },
+  abilityName: {
+    fontSize: '11px',
+    color: '#fff',
+    fontWeight: 'bold',
+    zIndex: 1,
+  },
+  abilityCooldownText: {
+    fontSize: '14px',
+    color: '#fff',
+    fontWeight: 'bold',
+    zIndex: 1,
+  },
 };
 
 function getHealthBarColor(healthPercent: number): string {
   if (healthPercent > 0.6) return '#4ade80'; // Green
   if (healthPercent > 0.3) return '#facc15'; // Yellow
   return '#ef4444'; // Red
+}
+
+interface AbilityIndicatorProps {
+  name: string;
+  keyBind: string;
+  ready: boolean;
+  cooldownRemaining: number;
+  maxCooldown: number;
+}
+
+function AbilityIndicator({ name, keyBind, ready, cooldownRemaining, maxCooldown }: AbilityIndicatorProps) {
+  const cooldownPercent = ready ? 0 : (cooldownRemaining / maxCooldown) * 100;
+  const cooldownSeconds = Math.ceil(cooldownRemaining / 1000);
+
+  return (
+    <div
+      style={{
+        ...styles.abilityBox,
+        ...(ready ? styles.abilityReady : styles.abilityOnCooldown),
+      }}
+    >
+      {/* Cooldown overlay that shrinks as cooldown progresses */}
+      {!ready && (
+        <div
+          style={{
+            ...styles.abilityCooldownOverlay,
+            height: `${cooldownPercent}%`,
+          }}
+        />
+      )}
+      <div style={styles.abilityKey}>[{keyBind}]</div>
+      {ready ? (
+        <div style={styles.abilityName}>{name}</div>
+      ) : (
+        <div style={styles.abilityCooldownText}>{cooldownSeconds}s</div>
+      )}
+    </div>
+  );
 }
 
 export function HUD() {
@@ -198,11 +292,31 @@ export function HUD() {
         </div>
       )}
 
+      {/* Ability cooldown indicators (only show if alive) */}
+      {!isSpectating && localPlayer && (
+        <div style={styles.abilitiesContainer}>
+          <AbilityIndicator
+            name="Dash"
+            keyBind="Shift"
+            ready={localPlayer.abilities.dash.ready}
+            cooldownRemaining={localPlayer.abilities.dash.cooldownRemaining}
+            maxCooldown={ABILITIES.DASH.COOLDOWN_MS}
+          />
+          <AbilityIndicator
+            name="Launch"
+            keyBind="Q"
+            ready={localPlayer.abilities.launchJump.ready}
+            cooldownRemaining={localPlayer.abilities.launchJump.cooldownRemaining}
+            maxCooldown={ABILITIES.LAUNCH_JUMP.COOLDOWN_MS}
+          />
+        </div>
+      )}
+
       {/* Instructions */}
       <div style={styles.instructions}>
         {isSpectating
           ? 'SPECTATING | Left/Right Arrow to switch players'
-          : 'Click to lock mouse | WASD to move | Mouse to look | Space to jump | Click to fire'}
+          : 'WASD move | Mouse look | Space jump | Shift dash | Q launch | Click fire'}
       </div>
     </div>
   );
