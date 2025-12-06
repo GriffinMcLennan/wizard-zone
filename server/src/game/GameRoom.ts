@@ -7,14 +7,19 @@ import {
   ProjectileState,
   PlayerDiedMessage,
   GameOverMessage,
+  NovaBlastMessage,
+  ArcaneRayMessage,
   createDefaultPlayerState,
   NETWORK,
   PHYSICS,
+  ABILITIES,
 } from '@wizard-zone/shared';
 import { PhysicsSystem } from '../systems/PhysicsSystem.js';
 import { ProjectileSystem } from '../systems/ProjectileSystem.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
+import { NovaBlastSystem } from '../systems/NovaBlastSystem.js';
+import { ArcaneRaySystem } from '../systems/ArcaneRaySystem.js';
 
 type BroadcastFn = (message: object) => void;
 
@@ -33,6 +38,8 @@ export class GameRoom {
   private projectileSystem: ProjectileSystem;
   private collisionSystem: CollisionSystem;
   private combatSystem: CombatSystem;
+  private novaBlastSystem: NovaBlastSystem;
+  private arcaneRaySystem: ArcaneRaySystem;
 
   constructor(roomId: string) {
     this.roomId = roomId;
@@ -40,6 +47,8 @@ export class GameRoom {
     this.projectileSystem = new ProjectileSystem();
     this.collisionSystem = new CollisionSystem();
     this.combatSystem = new CombatSystem();
+    this.novaBlastSystem = new NovaBlastSystem();
+    this.arcaneRaySystem = new ArcaneRaySystem();
   }
 
   setBroadcaster(fn: BroadcastFn): void {
@@ -136,29 +145,7 @@ export class GameRoom {
       );
 
       if (death) {
-        // Broadcast death event
-        const deathMessage: PlayerDiedMessage = {
-          type: ServerMessageType.PLAYER_DIED,
-          playerId: death.victimId,
-          killerId: death.killerId,
-        };
-        this.broadcast(deathMessage);
-
-        // Check win condition
-        if (!this.gameOver) {
-          const winnerId = this.combatSystem.checkWinCondition(this.players);
-          if (winnerId) {
-            const winner = this.players.get(winnerId);
-            const gameOverMessage: GameOverMessage = {
-              type: ServerMessageType.GAME_OVER,
-              winnerId,
-              winnerName: winner?.name ?? 'Unknown',
-            };
-            this.broadcast(gameOverMessage);
-            this.gameOver = true;
-            console.log(`[GameRoom] Game over! Winner: ${winner?.name}`);
-          }
-        }
+        this.handleDeath(death);
       }
     }
 
@@ -227,6 +214,96 @@ export class GameRoom {
     // Launch jump ability (Q)
     if (input.actions.launchJump) {
       this.physicsSystem.applyLaunchJump(player, input.look.yaw, this.currentTick);
+    }
+
+    // Nova Blast ability (E)
+    if (input.actions.novaBlast) {
+      const result = this.novaBlastSystem.fireNovaBlast(
+        player,
+        this.players,
+        this.currentTick
+      );
+      if (result) {
+        // Broadcast visual effect to all clients
+        const effectMessage: NovaBlastMessage = {
+          type: ServerMessageType.NOVA_BLAST,
+          casterId: result.casterId,
+          position: result.casterPosition,
+          radius: ABILITIES.NOVA_BLAST.RADIUS,
+        };
+        this.broadcast(effectMessage);
+
+        // Apply damage to all hit players
+        for (const victimId of result.hitPlayerIds) {
+          const death = this.combatSystem.applyHit(
+            this.players,
+            victimId,
+            result.casterId,
+            result.damage
+          );
+          if (death) {
+            this.handleDeath(death);
+          }
+        }
+      }
+    }
+
+    // Arcane Ray ability (R)
+    if (input.actions.arcaneRay) {
+      const result = this.arcaneRaySystem.fireArcaneRay(
+        player,
+        this.players,
+        this.currentTick
+      );
+      if (result) {
+        // Broadcast visual effect to all clients
+        const effectMessage: ArcaneRayMessage = {
+          type: ServerMessageType.ARCANE_RAY,
+          casterId: player.id,
+          origin: result.origin,
+          endpoint: result.endpoint,
+          hitPlayerId: result.hitPlayerId,
+        };
+        this.broadcast(effectMessage);
+
+        // Apply damage if hit
+        if (result.hitPlayerId) {
+          const death = this.combatSystem.applyHit(
+            this.players,
+            result.hitPlayerId,
+            player.id,
+            result.damage
+          );
+          if (death) {
+            this.handleDeath(death);
+          }
+        }
+      }
+    }
+  }
+
+  private handleDeath(death: { victimId: PlayerId; killerId: PlayerId }): void {
+    const deathMessage: PlayerDiedMessage = {
+      type: ServerMessageType.PLAYER_DIED,
+      playerId: death.victimId,
+      killerId: death.killerId,
+    };
+    this.broadcast(deathMessage);
+
+    // Check win condition
+    if (!this.gameOver) {
+      const winnerId = this.combatSystem.checkWinCondition(this.players);
+      if (winnerId) {
+        const winner = this.players.get(winnerId);
+        const gameOverMessage: GameOverMessage = {
+          type: ServerMessageType.GAME_OVER,
+          winnerId,
+          winnerName: winner?.name ?? 'Unknown',
+        };
+        this.broadcast(gameOverMessage);
+        this.gameOver = true;
+        console.log(`[GameRoom] Game over! Winner: ${winner?.name}`);
+      }
     }
   }
 

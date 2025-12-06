@@ -1,4 +1,4 @@
-import { PlayerState, PHYSICS, ABILITIES } from '@wizard-zone/shared';
+import { PlayerState, PHYSICS, ABILITIES, cooldownMsToTicks, ticksToMs } from '@wizard-zone/shared';
 import { ArenaCollisionSystem } from './ArenaCollisionSystem.js';
 
 export class PhysicsSystem {
@@ -121,7 +121,7 @@ export class PhysicsSystem {
    */
   applyDash(player: PlayerState, yaw: number, currentTick: number): boolean {
     // Check cooldown
-    const cooldownTicks = Math.ceil(ABILITIES.DASH.COOLDOWN_MS / (1000 / 60));
+    const cooldownTicks = cooldownMsToTicks(ABILITIES.DASH.COOLDOWN_MS);
     const ticksSinceLastUse = currentTick - player.abilities.dash.lastUsed;
 
     if (ticksSinceLastUse < cooldownTicks && player.abilities.dash.lastUsed !== 0) {
@@ -164,7 +164,7 @@ export class PhysicsSystem {
    */
   applyLaunchJump(player: PlayerState, yaw: number, currentTick: number): boolean {
     // Check cooldown
-    const cooldownTicks = Math.ceil(ABILITIES.LAUNCH_JUMP.COOLDOWN_MS / (1000 / 60));
+    const cooldownTicks = cooldownMsToTicks(ABILITIES.LAUNCH_JUMP.COOLDOWN_MS);
     const ticksSinceLastUse = currentTick - player.abilities.launchJump.lastUsed;
 
     if (ticksSinceLastUse < cooldownTicks && player.abilities.launchJump.lastUsed !== 0) {
@@ -199,31 +199,27 @@ export class PhysicsSystem {
    * Update ability cooldowns for all players
    */
   updateAbilityCooldowns(players: Map<string, PlayerState>, currentTick: number): void {
-    const dashCooldownTicks = Math.ceil(ABILITIES.DASH.COOLDOWN_MS / (1000 / 60));
-    const launchCooldownTicks = Math.ceil(ABILITIES.LAUNCH_JUMP.COOLDOWN_MS / (1000 / 60));
-
     for (const player of players.values()) {
-      // Update dash cooldown
-      const dashTicksSince = currentTick - player.abilities.dash.lastUsed;
-      if (dashTicksSince >= dashCooldownTicks) {
-        player.abilities.dash.ready = true;
-        player.abilities.dash.cooldownRemaining = 0;
-      } else {
-        player.abilities.dash.ready = false;
-        const remainingTicks = dashCooldownTicks - dashTicksSince;
-        player.abilities.dash.cooldownRemaining = remainingTicks * (1000 / 60);
-      }
+      this.updateSingleAbilityCooldown(player.abilities.dash, ABILITIES.DASH.COOLDOWN_MS, currentTick);
+      this.updateSingleAbilityCooldown(player.abilities.launchJump, ABILITIES.LAUNCH_JUMP.COOLDOWN_MS, currentTick);
+      this.updateSingleAbilityCooldown(player.abilities.novaBlast, ABILITIES.NOVA_BLAST.COOLDOWN_MS, currentTick);
+      this.updateSingleAbilityCooldown(player.abilities.arcaneRay, ABILITIES.ARCANE_RAY.COOLDOWN_MS, currentTick);
+    }
+  }
 
-      // Update launch jump cooldown
-      const launchTicksSince = currentTick - player.abilities.launchJump.lastUsed;
-      if (launchTicksSince >= launchCooldownTicks) {
-        player.abilities.launchJump.ready = true;
-        player.abilities.launchJump.cooldownRemaining = 0;
-      } else {
-        player.abilities.launchJump.ready = false;
-        const remainingTicks = launchCooldownTicks - launchTicksSince;
-        player.abilities.launchJump.cooldownRemaining = remainingTicks * (1000 / 60);
-      }
+  private updateSingleAbilityCooldown(
+    ability: { ready: boolean; cooldownRemaining: number; lastUsed: number },
+    cooldownMs: number,
+    currentTick: number
+  ): void {
+    const cooldownTicks = cooldownMsToTicks(cooldownMs);
+    const ticksSince = currentTick - ability.lastUsed;
+    if (ticksSince >= cooldownTicks) {
+      ability.ready = true;
+      ability.cooldownRemaining = 0;
+    } else {
+      ability.ready = false;
+      ability.cooldownRemaining = ticksToMs(cooldownTicks - ticksSince);
     }
   }
 }

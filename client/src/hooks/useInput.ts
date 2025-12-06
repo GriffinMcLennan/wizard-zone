@@ -11,6 +11,8 @@ interface KeyState {
   dash: boolean;
   launchJump: boolean;
   primaryFire: boolean;
+  novaBlast: boolean;
+  arcaneRay: boolean;
 }
 
 export function useInput() {
@@ -24,6 +26,8 @@ export function useInput() {
     dash: false,
     launchJump: false,
     primaryFire: false,
+    novaBlast: false,
+    arcaneRay: false,
   });
 
   const sendInput = useGameStore((s) => s.sendInput);
@@ -45,6 +49,8 @@ export function useInput() {
     ShiftLeft: 'dash',
     ShiftRight: 'dash',
     KeyQ: 'launchJump',
+    KeyE: 'novaBlast',
+    KeyR: 'arcaneRay',
   };
 
   useEffect(() => {
@@ -116,6 +122,8 @@ export function useInput() {
         dash: keys.dash,
         launchJump: keys.launchJump,
         primaryFire: keys.primaryFire,
+        novaBlast: keys.novaBlast,
+        arcaneRay: keys.arcaneRay,
       },
     };
   }, []);

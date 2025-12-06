@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
@@ -11,9 +12,20 @@ export default defineConfig({
         ws: true,
       },
     },
+    watch: {
+      // Watch the shared package dist folder for changes
+      ignored: ['!**/packages/shared/dist/**'],
+    },
   },
   optimizeDeps: {
-    include: ['@wizard-zone/shared'],
+    // Exclude workspace package from pre-bundling so it reloads on changes
+    exclude: ['@wizard-zone/shared'],
+  },
+  resolve: {
+    alias: {
+      // Point directly to dist for better change detection
+      '@wizard-zone/shared': path.resolve(__dirname, '../packages/shared/dist'),
+    },
   },
   build: {
     commonjsOptions: {

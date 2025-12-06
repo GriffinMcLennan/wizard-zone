@@ -7,12 +7,18 @@ import { useFirstPersonControls } from '../../hooks/useFirstPersonControls';
 import { InputController } from './InputController';
 import { Arena } from './Arena';
 import { Projectiles } from './Projectiles';
+import { NovaBlastEffect } from './NovaBlastEffect';
+import { ArcaneRayEffect } from './ArcaneRayEffect';
 import { PHYSICS } from '@wizard-zone/shared';
 
 export function Scene() {
   const connectionState = useGameStore((s) => s.connectionState);
   const remotePlayers = useGameStore((s) => s.remotePlayers);
   const isSpectating = useGameStore((s) => s.isSpectating);
+  const novaBlasts = useGameStore((s) => s.novaBlasts);
+  const arcaneRays = useGameStore((s) => s.arcaneRays);
+  const removeNovaBlast = useGameStore((s) => s.removeNovaBlast);
+  const removeArcaneRay = useGameStore((s) => s.removeArcaneRay);
 
   return (
     <>
@@ -49,6 +55,26 @@ export function Scene() {
 
       {/* Projectiles */}
       <Projectiles />
+
+      {/* Nova Blast Effects */}
+      {novaBlasts.map((effect) => (
+        <NovaBlastEffect
+          key={effect.id}
+          position={effect.position}
+          radius={effect.radius}
+          onComplete={() => removeNovaBlast(effect.id)}
+        />
+      ))}
+
+      {/* Arcane Ray Effects */}
+      {arcaneRays.map((effect) => (
+        <ArcaneRayEffect
+          key={effect.id}
+          origin={effect.origin}
+          endpoint={effect.endpoint}
+          onComplete={() => removeArcaneRay(effect.id)}
+        />
+      ))}
 
       {/* Sky */}
       <Sky

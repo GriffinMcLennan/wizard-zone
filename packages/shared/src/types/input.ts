@@ -15,6 +15,8 @@ export interface ActionInput {
   dash: boolean;
   launchJump: boolean;
   primaryFire: boolean;
+  novaBlast: boolean;
+  arcaneRay: boolean;
 }
 
 export interface InputState {

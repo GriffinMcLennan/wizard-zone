@@ -1,6 +1,7 @@
 import type { InputState } from './input.js';
 import type { PlayerState, PlayerId } from './player.js';
 import type { ProjectileState } from './projectile.js';
+import type { Vec3 } from './vectors.js';
 
 // ============ Client -> Server Messages ============
 
@@ -38,6 +39,8 @@ export enum ServerMessageType {
   GAME_OVER = 'game_over',
   PONG = 'pong',
   ERROR = 'error',
+  NOVA_BLAST = 'nova_blast',
+  ARCANE_RAY = 'arcane_ray',
 }
 
 export interface WelcomeMessage {
@@ -88,6 +91,21 @@ export interface ErrorMessage {
   message: string;
 }
 
+export interface NovaBlastMessage {
+  type: ServerMessageType.NOVA_BLAST;
+  casterId: PlayerId;
+  position: Vec3;
+  radius: number;
+}
+
+export interface ArcaneRayMessage {
+  type: ServerMessageType.ARCANE_RAY;
+  casterId: PlayerId;
+  origin: Vec3;
+  endpoint: Vec3;
+  hitPlayerId: PlayerId | null;
+}
+
 export type ServerMessage =
   | WelcomeMessage
   | GameStateMessage
@@ -96,4 +114,6 @@ export type ServerMessage =
   | PlayerDiedMessage
   | GameOverMessage
   | PongMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | NovaBlastMessage
+  | ArcaneRayMessage;

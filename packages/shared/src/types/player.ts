@@ -12,6 +12,8 @@ export interface AbilityState {
   dash: AbilityCooldown;
   launchJump: AbilityCooldown;
   primaryFire: AbilityCooldown;
+  novaBlast: AbilityCooldown;
+  arcaneRay: AbilityCooldown;
 }
 
 export interface PlayerState {
@@ -34,6 +36,8 @@ export function createDefaultAbilityState(): AbilityState {
     dash: { ready: true, cooldownRemaining: 0, lastUsed: 0 },
     launchJump: { ready: true, cooldownRemaining: 0, lastUsed: 0 },
     primaryFire: { ready: true, cooldownRemaining: 0, lastUsed: 0 },
+    novaBlast: { ready: true, cooldownRemaining: 0, lastUsed: 0 },
+    arcaneRay: { ready: true, cooldownRemaining: 0, lastUsed: 0 },
   };
 }
 

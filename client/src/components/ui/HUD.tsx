@@ -309,6 +309,20 @@ export function HUD() {
             cooldownRemaining={localPlayer.abilities.launchJump.cooldownRemaining}
             maxCooldown={ABILITIES.LAUNCH_JUMP.COOLDOWN_MS}
           />
+          <AbilityIndicator
+            name="Nova"
+            keyBind="E"
+            ready={localPlayer.abilities.novaBlast.ready}
+            cooldownRemaining={localPlayer.abilities.novaBlast.cooldownRemaining}
+            maxCooldown={ABILITIES.NOVA_BLAST.COOLDOWN_MS}
+          />
+          <AbilityIndicator
+            name="Ray"
+            keyBind="R"
+            ready={localPlayer.abilities.arcaneRay.ready}
+            cooldownRemaining={localPlayer.abilities.arcaneRay.cooldownRemaining}
+            maxCooldown={ABILITIES.ARCANE_RAY.COOLDOWN_MS}
+          />
         </div>
       )}
 
@@ -316,7 +330,7 @@ export function HUD() {
       <div style={styles.instructions}>
         {isSpectating
           ? 'SPECTATING | Left/Right Arrow to switch players'
-          : 'WASD move | Mouse look | Space jump | Shift dash | Q launch | Click fire'}
+          : 'WASD move | Mouse look | Space jump | Shift dash | Q launch | Click fire | E nova | R ray'}
       </div>
     </div>
   );

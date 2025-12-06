@@ -7,6 +7,7 @@ import {
   ServerMessageType,
   ClientMessageType,
   PlayerId,
+  Vec3,
   NETWORK,
 } from '@wizard-zone/shared';
 
@@ -23,6 +24,18 @@ interface DeathInfo {
 interface GameOverInfo {
   winnerId: PlayerId;
   winnerName: string;
+}
+
+interface NovaBlastEffect {
+  id: string;
+  position: Vec3;
+  radius: number;
+}
+
+interface ArcaneRayEffect {
+  id: string;
+  origin: Vec3;
+  endpoint: Vec3;
 }
 
 interface GameStore {
@@ -44,6 +57,10 @@ interface GameStore {
   killFeed: DeathInfo[];
   gameOver: GameOverInfo | null;
 
+  // Visual effects
+  novaBlasts: NovaBlastEffect[];
+  arcaneRays: ArcaneRayEffect[];
+
   // Local look direction (client-authoritative for responsiveness)
   lookYaw: number;
   lookPitch: number;
@@ -58,6 +75,8 @@ interface GameStore {
   addToInputHistory: (input: InputState) => void;
   setLook: (yaw: number, pitch: number) => void;
   cycleSpectateTarget: (direction: 1 | -1) => void;
+  removeNovaBlast: (id: string) => void;
+  removeArcaneRay: (id: string) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -75,6 +94,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   spectateTargetId: null,
   killFeed: [],
   gameOver: null,
+
+  novaBlasts: [],
+  arcaneRays: [],
 
   lookYaw: 0,
   lookPitch: 0,
@@ -179,6 +201,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const targetPlayer = alivePlayers[newIndex];
     set({ spectateTargetId: targetPlayer?.id ?? null });
   },
+
+  removeNovaBlast: (id: string) => {
+    set((state) => ({
+      novaBlasts: state.novaBlasts.filter((e) => e.id !== id),
+    }));
+  },
+
+  removeArcaneRay: (id: string) => {
+    set((state) => ({
+      arcaneRays: state.arcaneRays.filter((e) => e.id !== id),
+    }));
+  },
 }));
 
 function handleServerMessage(
@@ -271,6 +305,30 @@ function handleServerMessage(
           winnerName: message.winnerName,
         },
       });
+      break;
+    }
+
+    case ServerMessageType.NOVA_BLAST: {
+      const effect: NovaBlastEffect = {
+        id: `nova-${Date.now()}-${Math.random()}`,
+        position: message.position,
+        radius: message.radius,
+      };
+      set((state) => ({
+        novaBlasts: [...state.novaBlasts, effect],
+      }));
+      break;
+    }
+
+    case ServerMessageType.ARCANE_RAY: {
+      const effect: ArcaneRayEffect = {
+        id: `ray-${Date.now()}-${Math.random()}`,
+        origin: message.origin,
+        endpoint: message.endpoint,
+      };
+      set((state) => ({
+        arcaneRays: [...state.arcaneRays, effect],
+      }));
       break;
     }
   }

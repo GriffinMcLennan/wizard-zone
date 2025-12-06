@@ -8,6 +8,9 @@ import {
   ARENA_COLLISION,
   sphereOverlapsAABB,
   sphereOverlapsCylinder,
+  cooldownMsToTicks,
+  ticksToMs,
+  getDirectionFromLook,
 } from '@wizard-zone/shared';
 
 export class ProjectileSystem {
@@ -19,49 +22,25 @@ export class ProjectileSystem {
     const spawnDistance = 1.0;
     const eyeHeight = 0.9; // Relative to player position
 
-    // Direction from yaw and pitch
-    // In Three.js with Euler order 'YXZ':
-    // - yaw rotates around Y axis (positive = left/counter-clockwise from above)
-    // - pitch rotates around X axis (positive = look up)
-    // Camera default looks down -Z
-    //
-    // The forward direction vector for a camera with yaw and pitch:
-    // We need to negate pitch because in our system positive pitch = looking up
-    // but in spherical coordinates, we want negative Y component when looking up
-    const cosPitch = Math.cos(owner.pitch);
-    const sinPitch = Math.sin(owner.pitch);
-    const cosYaw = Math.cos(owner.yaw);
-    const sinYaw = Math.sin(owner.yaw);
-
-    // Forward direction (where camera is looking)
-    // At yaw=0, pitch=0: looking down -Z
-    // At yaw=PI/2, pitch=0: looking down -X
-    // At yaw=0, pitch=PI/4: looking up and forward (-Z, +Y)
-    const dirX = -sinYaw * cosPitch;
-    const dirY = sinPitch;
-    const dirZ = -cosYaw * cosPitch;
-
-    // Direction is already normalized (it's on a unit sphere)
-    const normalizedDirX = dirX;
-    const normalizedDirY = dirY;
-    const normalizedDirZ = dirZ;
+    // Get direction from yaw/pitch using shared utility
+    const dir = getDirectionFromLook(owner.yaw, owner.pitch);
 
     const projectile: ProjectileState = {
       id: uuidv4(),
       type: ProjectileType.FIREBALL,
       ownerId: owner.id,
       position: {
-        x: owner.position.x + normalizedDirX * spawnDistance,
-        y: owner.position.y + eyeHeight + normalizedDirY * spawnDistance,
-        z: owner.position.z + normalizedDirZ * spawnDistance,
+        x: owner.position.x + dir.x * spawnDistance,
+        y: owner.position.y + eyeHeight + dir.y * spawnDistance,
+        z: owner.position.z + dir.z * spawnDistance,
       },
       velocity: {
-        x: normalizedDirX * ABILITIES.PRIMARY_FIRE.PROJECTILE_SPEED,
-        y: normalizedDirY * ABILITIES.PRIMARY_FIRE.PROJECTILE_SPEED,
-        z: normalizedDirZ * ABILITIES.PRIMARY_FIRE.PROJECTILE_SPEED,
+        x: dir.x * ABILITIES.PRIMARY_FIRE.PROJECTILE_SPEED,
+        y: dir.y * ABILITIES.PRIMARY_FIRE.PROJECTILE_SPEED,
+        z: dir.z * ABILITIES.PRIMARY_FIRE.PROJECTILE_SPEED,
       },
       createdAt: tick,
-      lifetime: Math.ceil(ABILITIES.PRIMARY_FIRE.LIFETIME_MS / (1000 / 60)), // Convert to ticks
+      lifetime: cooldownMsToTicks(ABILITIES.PRIMARY_FIRE.LIFETIME_MS),
       damage: ABILITIES.PRIMARY_FIRE.DAMAGE,
       radius: ABILITIES.PRIMARY_FIRE.RADIUS,
     };
@@ -109,7 +88,7 @@ export class ProjectileSystem {
   }
 
   canFire(player: PlayerState, currentTick: number): boolean {
-    const cooldownTicks = Math.ceil(ABILITIES.PRIMARY_FIRE.COOLDOWN_MS / (1000 / 60));
+    const cooldownTicks = cooldownMsToTicks(ABILITIES.PRIMARY_FIRE.COOLDOWN_MS);
     const ticksSinceLastFire = currentTick - player.abilities.primaryFire.lastUsed;
     return ticksSinceLastFire >= cooldownTicks || player.abilities.primaryFire.lastUsed === 0;
   }
@@ -121,7 +100,7 @@ export class ProjectileSystem {
   }
 
   updateCooldowns(players: Map<PlayerId, PlayerState>, currentTick: number): void {
-    const cooldownTicks = Math.ceil(ABILITIES.PRIMARY_FIRE.COOLDOWN_MS / (1000 / 60));
+    const cooldownTicks = cooldownMsToTicks(ABILITIES.PRIMARY_FIRE.COOLDOWN_MS);
 
     for (const player of players.values()) {
       const ticksSinceLastFire = currentTick - player.abilities.primaryFire.lastUsed;
@@ -132,7 +111,7 @@ export class ProjectileSystem {
       } else {
         player.abilities.primaryFire.ready = false;
         const remainingTicks = cooldownTicks - ticksSinceLastFire;
-        player.abilities.primaryFire.cooldownRemaining = remainingTicks * (1000 / 60);
+        player.abilities.primaryFire.cooldownRemaining = ticksToMs(remainingTicks);
       }
     }
   }

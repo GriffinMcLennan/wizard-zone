@@ -16,6 +16,16 @@ export const ABILITIES = {
     LIFETIME_MS: 3000,
     RADIUS: 0.3,
   },
+  NOVA_BLAST: {
+    COOLDOWN_MS: 8000,
+    DAMAGE: 40,
+    RADIUS: 5,
+  },
+  ARCANE_RAY: {
+    COOLDOWN_MS: 6000,
+    DAMAGE: 35,
+    RANGE: 200,
+  },
 } as const;
 
 export const PLAYER = {
