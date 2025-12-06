@@ -1,4 +1,4 @@
-import { CollisionAABB, CollisionCylinder } from '../types/index.js';
+import { CollisionAABB, CollisionCylinder, Vec3 } from '../types/index.js';
 
 // Check if a circle (player XZ footprint) overlaps an AABB in XZ plane
 export function circleOverlapsAABBXZ(
@@ -87,4 +87,45 @@ export function resolveWallCollision(
   }
 
   return { x, z, collided: false };
+}
+
+// Check if a sphere overlaps an AABB in 3D (for projectile collision)
+export function sphereOverlapsAABB(
+  position: Vec3,
+  radius: number,
+  aabb: CollisionAABB
+): boolean {
+  // Find closest point on AABB to sphere center
+  const closestX = Math.max(aabb.min.x, Math.min(position.x, aabb.max.x));
+  const closestY = Math.max(aabb.min.y, Math.min(position.y, aabb.max.y));
+  const closestZ = Math.max(aabb.min.z, Math.min(position.z, aabb.max.z));
+
+  // Calculate distance squared from sphere center to closest point
+  const dx = position.x - closestX;
+  const dy = position.y - closestY;
+  const dz = position.z - closestZ;
+  const distSquared = dx * dx + dy * dy + dz * dz;
+
+  return distSquared <= radius * radius;
+}
+
+// Check if a sphere overlaps a cylinder in 3D (for projectile collision)
+export function sphereOverlapsCylinder(
+  position: Vec3,
+  radius: number,
+  cylinder: CollisionCylinder
+): boolean {
+  // Check Y bounds (sphere must overlap cylinder's vertical extent)
+  if (position.y + radius < cylinder.center.y ||
+      position.y - radius > cylinder.center.y + cylinder.height) {
+    return false;
+  }
+
+  // Check XZ distance (circle-circle collision in XZ plane)
+  const dx = position.x - cylinder.center.x;
+  const dz = position.z - cylinder.center.z;
+  const distSquared = dx * dx + dz * dz;
+  const minDist = radius + cylinder.radius;
+
+  return distSquared <= minDist * minDist;
 }

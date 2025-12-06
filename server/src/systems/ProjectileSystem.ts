@@ -5,6 +5,9 @@ import {
   PlayerState,
   PlayerId,
   ABILITIES,
+  ARENA_COLLISION,
+  sphereOverlapsAABB,
+  sphereOverlapsCylinder,
 } from '@wizard-zone/shared';
 
 export class ProjectileSystem {
@@ -79,6 +82,12 @@ export class ProjectileSystem {
       projectile.position.y += projectile.velocity.y * deltaSeconds;
       projectile.position.z += projectile.velocity.z * deltaSeconds;
 
+      // Check arena collision (walls, platforms, cylinders)
+      if (this.checkArenaCollision(projectile)) {
+        expiredIds.push(id);
+        continue;
+      }
+
       // Check lifetime
       const age = currentTick - projectile.createdAt;
       if (age >= projectile.lifetime) {
@@ -126,5 +135,33 @@ export class ProjectileSystem {
         player.abilities.primaryFire.cooldownRemaining = remainingTicks * (1000 / 60);
       }
     }
+  }
+
+  private checkArenaCollision(projectile: ProjectileState): boolean {
+    const pos = projectile.position;
+    const radius = projectile.radius;
+
+    // Check walls
+    for (const wall of ARENA_COLLISION.walls) {
+      if (sphereOverlapsAABB(pos, radius, wall)) {
+        return true;
+      }
+    }
+
+    // Check platforms
+    for (const platform of ARENA_COLLISION.platforms) {
+      if (sphereOverlapsAABB(pos, radius, platform)) {
+        return true;
+      }
+    }
+
+    // Check cylinders (pillars)
+    for (const cylinder of ARENA_COLLISION.cylinders) {
+      if (sphereOverlapsCylinder(pos, radius, cylinder)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }
