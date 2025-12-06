@@ -156,7 +156,8 @@ describe('CollisionSystem', () => {
 
     it('should detect collision at edge of hitbox (horizontal)', () => {
       const player = createDefaultPlayerState('player1', 'Player1');
-      player.position = { x: 0, y: 0, z: 0 }; // Feet at ground
+      // position.y is CENTER, so for feet at ground, center is at PLAYER_HEIGHT/2
+      player.position = { x: 0, y: PHYSICS.PLAYER_HEIGHT / 2, z: 0 };
 
       const players = new Map([['player1', player]]);
 
@@ -165,7 +166,7 @@ describe('CollisionSystem', () => {
       const projectile = createProjectile(
         'player2',
         totalRadius - 0.01, // Just inside collision range
-        PHYSICS.PLAYER_HEIGHT / 2, // Mid-height
+        PHYSICS.PLAYER_HEIGHT / 2, // Mid-height (center)
         0
       );
       const projectiles = new Map([[projectile.id, projectile]]);
@@ -180,7 +181,8 @@ describe('CollisionSystem', () => {
 
     it('should not detect collision just outside hitbox (horizontal)', () => {
       const player = createDefaultPlayerState('player1', 'Player1');
-      player.position = { x: 0, y: 0, z: 0 }; // Feet at ground
+      // position.y is CENTER, so for feet at ground, center is at PLAYER_HEIGHT/2
+      player.position = { x: 0, y: PHYSICS.PLAYER_HEIGHT / 2, z: 0 };
 
       const players = new Map([['player1', player]]);
 
@@ -189,7 +191,7 @@ describe('CollisionSystem', () => {
       const projectile = createProjectile(
         'player2',
         totalRadius + 0.1, // Just outside collision range
-        PHYSICS.PLAYER_HEIGHT / 2, // Mid-height
+        PHYSICS.PLAYER_HEIGHT / 2, // Mid-height (center)
         0
       );
       const projectiles = new Map([[projectile.id, projectile]]);
@@ -204,11 +206,12 @@ describe('CollisionSystem', () => {
 
     it('should detect collision at player head (capsule top)', () => {
       const player = createDefaultPlayerState('player1', 'Player1');
-      player.position = { x: 0, y: 0, z: 0 }; // Feet at ground
+      // position.y is CENTER, so for feet at ground, center is at PLAYER_HEIGHT/2
+      player.position = { x: 0, y: PHYSICS.PLAYER_HEIGHT / 2, z: 0 };
 
       const players = new Map([['player1', player]]);
 
-      // Projectile hitting top of head
+      // Projectile hitting top of head (head is at center + PLAYER_HEIGHT/2 = PLAYER_HEIGHT)
       const projectile = createProjectile(
         'player2',
         0,
@@ -227,11 +230,12 @@ describe('CollisionSystem', () => {
 
     it('should detect collision at player feet (capsule bottom)', () => {
       const player = createDefaultPlayerState('player1', 'Player1');
-      player.position = { x: 0, y: 0, z: 0 }; // Feet at ground
+      // position.y is CENTER, so for feet at ground, center is at PLAYER_HEIGHT/2
+      player.position = { x: 0, y: PHYSICS.PLAYER_HEIGHT / 2, z: 0 };
 
       const players = new Map([['player1', player]]);
 
-      // Projectile hitting feet
+      // Projectile hitting feet (feet are at center - PLAYER_HEIGHT/2 = 0)
       const projectile = createProjectile(
         'player2',
         0,
@@ -250,7 +254,8 @@ describe('CollisionSystem', () => {
 
     it('should not detect collision above player head', () => {
       const player = createDefaultPlayerState('player1', 'Player1');
-      player.position = { x: 0, y: 0, z: 0 }; // Feet at ground
+      // position.y is CENTER, so for feet at ground, center is at PLAYER_HEIGHT/2
+      player.position = { x: 0, y: PHYSICS.PLAYER_HEIGHT / 2, z: 0 };
 
       const players = new Map([['player1', player]]);
 
@@ -274,7 +279,9 @@ describe('CollisionSystem', () => {
 
     it('should not detect collision below player feet', () => {
       const player = createDefaultPlayerState('player1', 'Player1');
-      player.position = { x: 0, y: 1, z: 0 }; // Feet elevated
+      // position.y is CENTER, center at 1.0 means feet at 1.0 - PLAYER_HEIGHT/2
+      player.position = { x: 0, y: 1, z: 0 };
+      const feetY = player.position.y - PHYSICS.PLAYER_HEIGHT / 2;
 
       const players = new Map([['player1', player]]);
 
@@ -283,7 +290,7 @@ describe('CollisionSystem', () => {
       const projectile = createProjectile(
         'player2',
         0,
-        player.position.y - totalRadius - 0.1, // Below feet
+        feetY - totalRadius - 0.1, // Below feet
         0
       );
       const projectiles = new Map([[projectile.id, projectile]]);
@@ -298,7 +305,8 @@ describe('CollisionSystem', () => {
 
     it('should detect collision at diagonal angle to capsule', () => {
       const player = createDefaultPlayerState('player1', 'Player1');
-      player.position = { x: 0, y: 0, z: 0 }; // Feet at ground
+      // position.y is CENTER, so for feet at ground, center is at PLAYER_HEIGHT/2
+      player.position = { x: 0, y: PHYSICS.PLAYER_HEIGHT / 2, z: 0 };
 
       const players = new Map([['player1', player]]);
 
@@ -307,7 +315,7 @@ describe('CollisionSystem', () => {
       const projectile = createProjectile(
         'player2',
         dist * 0.7, // X offset
-        0.5, // Low height
+        0.5, // Low height (within the capsule since feet at 0, head at PLAYER_HEIGHT)
         dist * 0.7 // Z offset
       );
       const projectiles = new Map([[projectile.id, projectile]]);

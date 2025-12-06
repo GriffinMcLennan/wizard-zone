@@ -61,7 +61,7 @@ export class CollisionSystem {
       projectile.position,
       projectile.radius,
       player.position.x,
-      player.position.y,  // feet position
+      player.position.y - PHYSICS.PLAYER_HEIGHT / 2,  // actual feet position (position.y is center)
       player.position.z,
       PHYSICS.PLAYER_HEIGHT,
       PHYSICS.PLAYER_RADIUS

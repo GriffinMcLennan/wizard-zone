@@ -169,7 +169,7 @@ function RemotePlayerMesh({ player }: RemotePlayerMeshProps) {
     if (meshRef.current) {
       meshRef.current.position.set(
         player.position.x,
-        player.position.y,
+        player.position.y - PHYSICS.PLAYER_HEIGHT / 2,  // position.y is center, mesh geometry starts at feet (y=0)
         player.position.z
       );
       meshRef.current.rotation.y = player.yaw;
