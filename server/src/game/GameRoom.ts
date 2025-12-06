@@ -101,6 +101,35 @@ export class GameRoom {
   removePlayer(playerId: PlayerId): void {
     this.players.delete(playerId);
     this.pendingInputs.delete(playerId);
+
+    // If room is now empty, reset for the next game
+    if (this.players.size === 0) {
+      this.reset();
+      return;
+    }
+
+    // Check win condition after player disconnects
+    if (!this.gameOver) {
+      const winnerId = this.combatSystem.checkWinCondition(this.players);
+      if (winnerId) {
+        const winner = this.players.get(winnerId);
+        const gameOverMessage: GameOverMessage = {
+          type: ServerMessageType.GAME_OVER,
+          winnerId,
+          winnerName: winner?.name ?? 'Unknown',
+        };
+        this.broadcast(gameOverMessage);
+        this.gameOver = true;
+        console.log(`[GameRoom] Game over! Winner: ${winner?.name} (opponent disconnected)`);
+      }
+    }
+  }
+
+  private reset(): void {
+    this.gameOver = false;
+    this.projectiles.clear();
+    this.currentTick = 0;
+    console.log('[GameRoom] Room reset for new game');
   }
 
   handleInput(playerId: PlayerId, input: InputState): void {
