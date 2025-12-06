@@ -3,14 +3,14 @@ import {
   ProjectileState,
   ProjectileType,
   PlayerState,
-  PlayerId,
   ABILITIES,
   ARENA_COLLISION,
   sphereOverlapsAABB,
   sphereOverlapsCylinder,
   cooldownMsToTicks,
-  ticksToMs,
   getDirectionFromLook,
+  isAbilityReady,
+  recordAbilityUse,
 } from '@wizard-zone/shared';
 
 export class ProjectileSystem {
@@ -88,32 +88,11 @@ export class ProjectileSystem {
   }
 
   canFire(player: PlayerState, currentTick: number): boolean {
-    const cooldownTicks = cooldownMsToTicks(ABILITIES.PRIMARY_FIRE.COOLDOWN_MS);
-    const ticksSinceLastFire = currentTick - player.abilities.primaryFire.lastUsed;
-    return ticksSinceLastFire >= cooldownTicks;
+    return isAbilityReady(player.abilities.primaryFire.lastUsed, ABILITIES.PRIMARY_FIRE.COOLDOWN_MS, currentTick);
   }
 
   recordFire(player: PlayerState, currentTick: number): void {
-    player.abilities.primaryFire.lastUsed = currentTick;
-    player.abilities.primaryFire.ready = false;
-    player.abilities.primaryFire.cooldownRemaining = ABILITIES.PRIMARY_FIRE.COOLDOWN_MS;
-  }
-
-  updateCooldowns(players: Map<PlayerId, PlayerState>, currentTick: number): void {
-    const cooldownTicks = cooldownMsToTicks(ABILITIES.PRIMARY_FIRE.COOLDOWN_MS);
-
-    for (const player of players.values()) {
-      const ticksSinceLastFire = currentTick - player.abilities.primaryFire.lastUsed;
-
-      if (ticksSinceLastFire >= cooldownTicks) {
-        player.abilities.primaryFire.ready = true;
-        player.abilities.primaryFire.cooldownRemaining = 0;
-      } else {
-        player.abilities.primaryFire.ready = false;
-        const remainingTicks = cooldownTicks - ticksSinceLastFire;
-        player.abilities.primaryFire.cooldownRemaining = ticksToMs(remainingTicks);
-      }
-    }
+    recordAbilityUse(player.abilities.primaryFire, ABILITIES.PRIMARY_FIRE.COOLDOWN_MS, currentTick);
   }
 
   private checkArenaCollision(projectile: ProjectileState): boolean {

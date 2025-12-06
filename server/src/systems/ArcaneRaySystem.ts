@@ -1,4 +1,4 @@
-import { PlayerState, PlayerId, Vec3, ABILITIES, PHYSICS, cooldownMsToTicks, getDirectionFromLook } from '@wizard-zone/shared';
+import { PlayerState, PlayerId, Vec3, ABILITIES, PHYSICS, getDirectionFromLook, isAbilityReady, recordAbilityUse } from '@wizard-zone/shared';
 
 export interface ArcaneRayResult {
   origin: Vec3;
@@ -19,14 +19,11 @@ export class ArcaneRaySystem {
     players: Map<PlayerId, PlayerState>,
     currentTick: number
   ): ArcaneRayResult | null {
-    if (!this.canFire(caster, currentTick)) {
+    if (!isAbilityReady(caster.abilities.arcaneRay.lastUsed, ABILITIES.ARCANE_RAY.COOLDOWN_MS, currentTick)) {
       return null;
     }
 
-    // Record ability usage
-    caster.abilities.arcaneRay.lastUsed = currentTick;
-    caster.abilities.arcaneRay.ready = false;
-    caster.abilities.arcaneRay.cooldownRemaining = ABILITIES.ARCANE_RAY.COOLDOWN_MS;
+    recordAbilityUse(caster.abilities.arcaneRay, ABILITIES.ARCANE_RAY.COOLDOWN_MS, currentTick);
 
     // Calculate ray origin (eye level)
     const origin: Vec3 = {
@@ -64,12 +61,6 @@ export class ArcaneRaySystem {
       hitPlayerId: hitResult?.playerId ?? null,
       damage: ABILITIES.ARCANE_RAY.DAMAGE,
     };
-  }
-
-  private canFire(caster: PlayerState, currentTick: number): boolean {
-    const cooldownTicks = cooldownMsToTicks(ABILITIES.ARCANE_RAY.COOLDOWN_MS);
-    const ticksSinceLastUse = currentTick - caster.abilities.arcaneRay.lastUsed;
-    return ticksSinceLastUse >= cooldownTicks;
   }
 
   /**

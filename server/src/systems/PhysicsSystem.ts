@@ -1,4 +1,4 @@
-import { PlayerState, PHYSICS, ABILITIES, cooldownMsToTicks, ticksToMs } from '@wizard-zone/shared';
+import { PlayerState, PHYSICS, ABILITIES, isAbilityReady, recordAbilityUse } from '@wizard-zone/shared';
 import { ArenaCollisionSystem } from './ArenaCollisionSystem.js';
 
 export class PhysicsSystem {
@@ -120,11 +120,7 @@ export class PhysicsSystem {
    * Apply dash ability - burst of speed in movement direction
    */
   applyDash(player: PlayerState, yaw: number, currentTick: number): boolean {
-    // Check cooldown
-    const cooldownTicks = cooldownMsToTicks(ABILITIES.DASH.COOLDOWN_MS);
-    const ticksSinceLastUse = currentTick - player.abilities.dash.lastUsed;
-
-    if (ticksSinceLastUse < cooldownTicks) {
+    if (!isAbilityReady(player.abilities.dash.lastUsed, ABILITIES.DASH.COOLDOWN_MS, currentTick)) {
       return false;
     }
 
@@ -151,10 +147,7 @@ export class PhysicsSystem {
     player.velocity.x = dashDirX * dashSpeed;
     player.velocity.z = dashDirZ * dashSpeed;
 
-    // Record cooldown
-    player.abilities.dash.lastUsed = currentTick;
-    player.abilities.dash.ready = false;
-    player.abilities.dash.cooldownRemaining = ABILITIES.DASH.COOLDOWN_MS;
+    recordAbilityUse(player.abilities.dash, ABILITIES.DASH.COOLDOWN_MS, currentTick);
 
     return true;
   }
@@ -163,11 +156,7 @@ export class PhysicsSystem {
    * Apply launch jump ability - high vertical jump with forward boost
    */
   applyLaunchJump(player: PlayerState, yaw: number, currentTick: number): boolean {
-    // Check cooldown
-    const cooldownTicks = cooldownMsToTicks(ABILITIES.LAUNCH_JUMP.COOLDOWN_MS);
-    const ticksSinceLastUse = currentTick - player.abilities.launchJump.lastUsed;
-
-    if (ticksSinceLastUse < cooldownTicks) {
+    if (!isAbilityReady(player.abilities.launchJump.lastUsed, ABILITIES.LAUNCH_JUMP.COOLDOWN_MS, currentTick)) {
       return false;
     }
 
@@ -187,39 +176,8 @@ export class PhysicsSystem {
 
     player.isGrounded = false;
 
-    // Record cooldown
-    player.abilities.launchJump.lastUsed = currentTick;
-    player.abilities.launchJump.ready = false;
-    player.abilities.launchJump.cooldownRemaining = ABILITIES.LAUNCH_JUMP.COOLDOWN_MS;
+    recordAbilityUse(player.abilities.launchJump, ABILITIES.LAUNCH_JUMP.COOLDOWN_MS, currentTick);
 
     return true;
-  }
-
-  /**
-   * Update ability cooldowns for all players
-   */
-  updateAbilityCooldowns(players: Map<string, PlayerState>, currentTick: number): void {
-    for (const player of players.values()) {
-      this.updateSingleAbilityCooldown(player.abilities.dash, ABILITIES.DASH.COOLDOWN_MS, currentTick);
-      this.updateSingleAbilityCooldown(player.abilities.launchJump, ABILITIES.LAUNCH_JUMP.COOLDOWN_MS, currentTick);
-      this.updateSingleAbilityCooldown(player.abilities.novaBlast, ABILITIES.NOVA_BLAST.COOLDOWN_MS, currentTick);
-      this.updateSingleAbilityCooldown(player.abilities.arcaneRay, ABILITIES.ARCANE_RAY.COOLDOWN_MS, currentTick);
-    }
-  }
-
-  private updateSingleAbilityCooldown(
-    ability: { ready: boolean; cooldownRemaining: number; lastUsed: number },
-    cooldownMs: number,
-    currentTick: number
-  ): void {
-    const cooldownTicks = cooldownMsToTicks(cooldownMs);
-    const ticksSince = currentTick - ability.lastUsed;
-    if (ticksSince >= cooldownTicks) {
-      ability.ready = true;
-      ability.cooldownRemaining = 0;
-    } else {
-      ability.ready = false;
-      ability.cooldownRemaining = ticksToMs(cooldownTicks - ticksSince);
-    }
   }
 }

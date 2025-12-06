@@ -34,7 +34,7 @@ export interface PlayerState {
 
 // Use a large negative number to ensure abilities are always ready on spawn
 // This guarantees (currentTick - lastUsed) will exceed any cooldown
-const NEVER_USED = -100000;
+export const NEVER_USED = -100000;
 
 export function createDefaultAbilityState(): AbilityState {
   return {

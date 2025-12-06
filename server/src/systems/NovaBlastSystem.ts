@@ -1,4 +1,4 @@
-import { PlayerState, PlayerId, Vec3, ABILITIES, cooldownMsToTicks } from '@wizard-zone/shared';
+import { PlayerState, PlayerId, Vec3, ABILITIES, isAbilityReady, recordAbilityUse } from '@wizard-zone/shared';
 
 export interface NovaBlastResult {
   casterId: PlayerId;
@@ -17,14 +17,11 @@ export class NovaBlastSystem {
     players: Map<PlayerId, PlayerState>,
     currentTick: number
   ): NovaBlastResult | null {
-    if (!this.canFire(caster, currentTick)) {
+    if (!isAbilityReady(caster.abilities.novaBlast.lastUsed, ABILITIES.NOVA_BLAST.COOLDOWN_MS, currentTick)) {
       return null;
     }
 
-    // Record ability usage
-    caster.abilities.novaBlast.lastUsed = currentTick;
-    caster.abilities.novaBlast.ready = false;
-    caster.abilities.novaBlast.cooldownRemaining = ABILITIES.NOVA_BLAST.COOLDOWN_MS;
+    recordAbilityUse(caster.abilities.novaBlast, ABILITIES.NOVA_BLAST.COOLDOWN_MS, currentTick);
 
     // Find all players within radius
     const hitPlayerIds: PlayerId[] = [];
@@ -58,11 +55,5 @@ export class NovaBlastSystem {
       hitPlayerIds,
       damage: ABILITIES.NOVA_BLAST.DAMAGE,
     };
-  }
-
-  private canFire(caster: PlayerState, currentTick: number): boolean {
-    const cooldownTicks = cooldownMsToTicks(ABILITIES.NOVA_BLAST.COOLDOWN_MS);
-    const ticksSinceLastUse = currentTick - caster.abilities.novaBlast.lastUsed;
-    return ticksSinceLastUse >= cooldownTicks;
   }
 }

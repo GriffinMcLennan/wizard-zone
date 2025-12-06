@@ -105,29 +105,6 @@ describe('ProjectileSystem', () => {
     });
   });
 
-  describe('updateCooldowns', () => {
-    it('should update cooldown remaining time', () => {
-      const player = createDefaultPlayerState('test-id', 'TestPlayer');
-      const players = new Map([['test-id', player]]);
-
-      projectileSystem.recordFire(player, 100);
-      projectileSystem.updateCooldowns(players, 110);
-
-      expect(player.abilities.primaryFire.ready).toBe(false);
-      expect(player.abilities.primaryFire.cooldownRemaining).toBeGreaterThan(0);
-    });
-
-    it('should set ready to true after cooldown expires', () => {
-      const player = createDefaultPlayerState('test-id', 'TestPlayer');
-      const players = new Map([['test-id', player]]);
-
-      projectileSystem.recordFire(player, 100);
-
-      const cooldownTicks = Math.ceil(ABILITIES.PRIMARY_FIRE.COOLDOWN_MS / (1000 / 60));
-      projectileSystem.updateCooldowns(players, 100 + cooldownTicks);
-
-      expect(player.abilities.primaryFire.ready).toBe(true);
-      expect(player.abilities.primaryFire.cooldownRemaining).toBe(0);
-    });
-  });
+  // Note: updateCooldowns has been moved to CooldownSystem
+  // See CooldownSystem.test.ts for cooldown update tests
 });

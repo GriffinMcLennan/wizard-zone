@@ -1,5 +1,6 @@
 import { NETWORK } from '../constants/network.js';
 import { Vec3 } from '../types/vectors.js';
+import { AbilityCooldown } from '../types/player.js';
 
 /**
  * Convert cooldown time in milliseconds to game ticks.
@@ -17,6 +18,8 @@ export function ticksToMs(ticks: number): number {
 
 /**
  * Check if an ability is off cooldown.
+ * Works correctly with NEVER_USED (-100000) initialization since
+ * (currentTick - NEVER_USED) will always exceed any cooldown.
  */
 export function isAbilityReady(
   lastUsed: number,
@@ -25,7 +28,42 @@ export function isAbilityReady(
 ): boolean {
   const cooldownTicks = cooldownMsToTicks(cooldownMs);
   const ticksSinceLastUse = currentTick - lastUsed;
-  return lastUsed === 0 || ticksSinceLastUse >= cooldownTicks;
+  return ticksSinceLastUse >= cooldownTicks;
+}
+
+/**
+ * Record that an ability was just used.
+ * Sets lastUsed to current tick, ready to false, and cooldownRemaining to full cooldown.
+ */
+export function recordAbilityUse(
+  ability: AbilityCooldown,
+  cooldownMs: number,
+  currentTick: number
+): void {
+  ability.lastUsed = currentTick;
+  ability.ready = false;
+  ability.cooldownRemaining = cooldownMs;
+}
+
+/**
+ * Update ability cooldown state for UI display.
+ * Calculates ready state and remaining time in milliseconds.
+ */
+export function updateAbilityCooldown(
+  ability: AbilityCooldown,
+  cooldownMs: number,
+  currentTick: number
+): void {
+  const cooldownTicks = cooldownMsToTicks(cooldownMs);
+  const ticksSince = currentTick - ability.lastUsed;
+
+  if (ticksSince >= cooldownTicks) {
+    ability.ready = true;
+    ability.cooldownRemaining = 0;
+  } else {
+    ability.ready = false;
+    ability.cooldownRemaining = ticksToMs(cooldownTicks - ticksSince);
+  }
 }
 
 /**

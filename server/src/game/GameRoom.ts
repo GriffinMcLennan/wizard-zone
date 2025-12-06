@@ -23,6 +23,7 @@ import { CombatSystem } from '../systems/CombatSystem.js';
 import { NovaBlastSystem } from '../systems/NovaBlastSystem.js';
 import { ArcaneRaySystem } from '../systems/ArcaneRaySystem.js';
 import { HealthRegenSystem } from '../systems/HealthRegenSystem.js';
+import { CooldownSystem } from '../systems/CooldownSystem.js';
 import { NovaBlastMessage, ArcaneRayMessage } from '@wizard-zone/shared';
 
 type BroadcastFn = (message: object) => void;
@@ -59,6 +60,7 @@ export class GameRoom {
   private novaBlastSystem: NovaBlastSystem;
   private arcaneRaySystem: ArcaneRaySystem;
   private healthRegenSystem: HealthRegenSystem;
+  private cooldownSystem: CooldownSystem;
 
   constructor(roomId: string) {
     this.roomId = roomId;
@@ -69,6 +71,7 @@ export class GameRoom {
     this.novaBlastSystem = new NovaBlastSystem();
     this.arcaneRaySystem = new ArcaneRaySystem();
     this.healthRegenSystem = new HealthRegenSystem();
+    this.cooldownSystem = new CooldownSystem();
   }
 
   setBroadcaster(fn: BroadcastFn): void {
@@ -352,8 +355,7 @@ export class GameRoom {
     this.collisionSystem.resolvePlayerCollisions(this.players);
 
     // Update ability cooldowns
-    this.projectileSystem.updateCooldowns(this.players, this.currentTick);
-    this.physicsSystem.updateAbilityCooldowns(this.players, this.currentTick);
+    this.cooldownSystem.updateAllCooldowns(this.players, this.currentTick);
 
     // Update health regeneration
     this.healthRegenSystem.update(this.players, this.currentTick, deltaSeconds);

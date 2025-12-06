@@ -242,56 +242,6 @@ describe('PhysicsSystem', () => {
     });
   });
 
-  describe('updateAbilityCooldowns', () => {
-    it('should update dash cooldown remaining', () => {
-      const player = createDefaultPlayerState('test-id', 'TestPlayer');
-      const players = new Map([['test-id', player]]);
-
-      physics.applyDash(player, 0, 100);
-      physics.updateAbilityCooldowns(players, 110);
-
-      expect(player.abilities.dash.ready).toBe(false);
-      expect(player.abilities.dash.cooldownRemaining).toBeGreaterThan(0);
-      expect(player.abilities.dash.cooldownRemaining).toBeLessThan(ABILITIES.DASH.COOLDOWN_MS);
-    });
-
-    it('should set dash ready after cooldown expires', () => {
-      const player = createDefaultPlayerState('test-id', 'TestPlayer');
-      const players = new Map([['test-id', player]]);
-
-      physics.applyDash(player, 0, 100);
-
-      const cooldownTicks = Math.ceil(ABILITIES.DASH.COOLDOWN_MS / (1000 / 60));
-      physics.updateAbilityCooldowns(players, 100 + cooldownTicks);
-
-      expect(player.abilities.dash.ready).toBe(true);
-      expect(player.abilities.dash.cooldownRemaining).toBe(0);
-    });
-
-    it('should update launch jump cooldown remaining', () => {
-      const player = createDefaultPlayerState('test-id', 'TestPlayer');
-      player.isGrounded = true;
-      const players = new Map([['test-id', player]]);
-
-      physics.applyLaunchJump(player, 0, 100);
-      physics.updateAbilityCooldowns(players, 110);
-
-      expect(player.abilities.launchJump.ready).toBe(false);
-      expect(player.abilities.launchJump.cooldownRemaining).toBeGreaterThan(0);
-    });
-
-    it('should set launch jump ready after cooldown expires', () => {
-      const player = createDefaultPlayerState('test-id', 'TestPlayer');
-      player.isGrounded = true;
-      const players = new Map([['test-id', player]]);
-
-      physics.applyLaunchJump(player, 0, 100);
-
-      const cooldownTicks = Math.ceil(ABILITIES.LAUNCH_JUMP.COOLDOWN_MS / (1000 / 60));
-      physics.updateAbilityCooldowns(players, 100 + cooldownTicks);
-
-      expect(player.abilities.launchJump.ready).toBe(true);
-      expect(player.abilities.launchJump.cooldownRemaining).toBe(0);
-    });
-  });
+  // Note: updateAbilityCooldowns has been moved to CooldownSystem
+  // See CooldownSystem.test.ts for cooldown update tests
 });
