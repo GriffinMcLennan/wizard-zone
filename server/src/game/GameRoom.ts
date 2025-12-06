@@ -7,12 +7,14 @@ import {
   ProjectileState,
   createDefaultPlayerState,
   NETWORK,
+  PHYSICS,
 } from '@wizard-zone/shared';
+import { PhysicsSystem } from '../systems/PhysicsSystem.js';
 
 type BroadcastFn = (message: object) => void;
 
 export class GameRoom {
-  private roomId: string;
+  public readonly roomId: string;
   private players: Map<PlayerId, PlayerState> = new Map();
   private projectiles: Map<string, ProjectileState> = new Map();
   private pendingInputs: Map<PlayerId, InputState[]> = new Map();
@@ -21,8 +23,11 @@ export class GameRoom {
   private broadcast: BroadcastFn = () => {};
   private intervalId: NodeJS.Timeout | null = null;
 
+  private physicsSystem: PhysicsSystem;
+
   constructor(roomId: string) {
     this.roomId = roomId;
+    this.physicsSystem = new PhysicsSystem();
   }
 
   setBroadcaster(fn: BroadcastFn): void {
@@ -57,7 +62,7 @@ export class GameRoom {
     // Randomize spawn position
     player.position.x = (Math.random() - 0.5) * 20;
     player.position.z = (Math.random() - 0.5) * 20;
-    player.position.y = 1;
+    player.position.y = PHYSICS.PLAYER_HEIGHT / 2;
 
     this.players.set(playerId, player);
     this.pendingInputs.set(playerId, []);
@@ -79,15 +84,13 @@ export class GameRoom {
 
   private tick(): void {
     this.currentTick++;
+    const deltaSeconds = NETWORK.TICK_INTERVAL_MS / 1000;
 
-    // Process inputs (will be expanded in Phase 3)
+    // Process all pending inputs
     this.processInputs();
 
-    // Update physics (will be expanded in Phase 3)
-    // this.updatePhysics();
-
-    // Update collisions (will be expanded in Phase 5)
-    // this.updateCollisions();
+    // Update physics
+    this.physicsSystem.update(this.players, deltaSeconds);
 
     // Broadcast state to all clients
     this.broadcastState();
@@ -99,9 +102,7 @@ export class GameRoom {
       if (!player || !player.isAlive) continue;
 
       for (const input of inputs) {
-        // Update look direction
-        player.yaw = input.look.yaw;
-        player.pitch = input.look.pitch;
+        this.applyInput(player, input);
         player.lastProcessedInput = input.sequenceNumber;
       }
     }
@@ -110,6 +111,29 @@ export class GameRoom {
     for (const inputs of this.pendingInputs.values()) {
       inputs.length = 0;
     }
+  }
+
+  private applyInput(player: PlayerState, input: InputState): void {
+    // Update look direction
+    player.yaw = input.look.yaw;
+    player.pitch = input.look.pitch;
+
+    // Apply movement
+    this.physicsSystem.applyMovementInput(
+      player,
+      input.movement.forward,
+      input.movement.backward,
+      input.movement.left,
+      input.movement.right,
+      input.look.yaw
+    );
+
+    // Apply jump
+    if (input.actions.jump) {
+      this.physicsSystem.applyJump(player);
+    }
+
+    // Dash and launch jump will be added in Phase 7
   }
 
   private broadcastState(): void {

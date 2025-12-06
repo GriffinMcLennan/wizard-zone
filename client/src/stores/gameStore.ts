@@ -25,6 +25,10 @@ interface GameStore {
   remotePlayers: Map<PlayerId, PlayerState>;
   projectiles: ProjectileState[];
 
+  // Local look direction (client-authoritative for responsiveness)
+  lookYaw: number;
+  lookPitch: number;
+
   // Input history for reconciliation
   inputHistory: InputState[];
 
@@ -33,6 +37,7 @@ interface GameStore {
   disconnect: () => void;
   sendInput: (input: InputState) => void;
   addToInputHistory: (input: InputState) => void;
+  setLook: (yaw: number, pitch: number) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -45,6 +50,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   localPlayer: null,
   remotePlayers: new Map(),
   projectiles: [],
+
+  lookYaw: 0,
+  lookPitch: 0,
 
   inputHistory: [],
 
@@ -113,6 +121,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set((state) => ({
       inputHistory: [...state.inputHistory, input].slice(-NETWORK.MAX_INPUT_BUFFER_SIZE),
     }));
+  },
+
+  setLook: (yaw: number, pitch: number) => {
+    set({ lookYaw: yaw, lookPitch: pitch });
   },
 }));
 

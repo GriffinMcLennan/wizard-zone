@@ -4,6 +4,7 @@ import { Sky } from '@react-three/drei';
 import * as THREE from 'three';
 import { useGameStore } from '../../stores/gameStore';
 import { useFirstPersonControls } from '../../hooks/useFirstPersonControls';
+import { InputController } from './InputController';
 import { Arena } from './Arena';
 import { PHYSICS } from '@wizard-zone/shared';
 
@@ -13,8 +14,13 @@ export function Scene() {
 
   return (
     <>
-      {/* First-person camera controller */}
-      {connectionState === 'connected' && <FirstPersonCamera />}
+      {/* First-person camera controller and input handling */}
+      {connectionState === 'connected' && (
+        <>
+          <FirstPersonCamera />
+          <InputController />
+        </>
+      )}
 
       {/* Lighting */}
       <ambientLight intensity={0.5} />

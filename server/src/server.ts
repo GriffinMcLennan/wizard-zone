@@ -10,7 +10,7 @@ export function createServer() {
   const wss = new WebSocketServer({ server: httpServer });
 
   // Health check endpoint
-  app.get('/health', (req, res) => {
+  app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: Date.now() });
   });
 

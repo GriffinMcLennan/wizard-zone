@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import { Euler } from 'three';
 import { PHYSICS } from '@wizard-zone/shared';
+import { useGameStore } from '../stores/gameStore';
 
 interface FirstPersonControlsState {
   isLocked: boolean;
@@ -11,6 +12,7 @@ interface FirstPersonControlsState {
 
 export function useFirstPersonControls() {
   const { camera, gl } = useThree();
+  const setLook = useGameStore((s) => s.setLook);
   const stateRef = useRef<FirstPersonControlsState>({
     isLocked: false,
     yaw: 0,
@@ -77,10 +79,13 @@ export function useFirstPersonControls() {
     return () => gl.domElement.removeEventListener('click', handleClick);
   }, [gl, requestLock]);
 
-  // Update camera rotation each frame
+  // Update camera rotation each frame and sync to store
   useFrame(() => {
     euler.current.set(stateRef.current.pitch, stateRef.current.yaw, 0, 'YXZ');
     camera.quaternion.setFromEuler(euler.current);
+
+    // Sync to store for input system to read
+    setLook(stateRef.current.yaw, stateRef.current.pitch);
   });
 
   return {
