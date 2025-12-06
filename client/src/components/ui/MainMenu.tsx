@@ -121,7 +121,7 @@ export function MainMenu() {
 
   const handleJoin = () => {
     if (!playerName.trim()) return;
-    const wsUrl = `ws://localhost:${NETWORK.DEFAULT_PORT}`;
+    const wsUrl = import.meta.env.VITE_WS_URL || `ws://localhost:${NETWORK.DEFAULT_PORT}`;
     connect(wsUrl, playerName.trim());
   };
 
