@@ -3,6 +3,7 @@ import {
   ProjectileState,
   PlayerId,
   PHYSICS,
+  sphereOverlapsCapsule,
 } from '@wizard-zone/shared';
 
 export interface CollisionResult {
@@ -49,26 +50,22 @@ export class CollisionSystem {
   }
 
   /**
-   * Check collision between a projectile (sphere) and player (capsule/sphere approximation)
+   * Check collision between a projectile (sphere) and player (capsule)
+   * Capsule covers the full player height for accurate hitbox detection
    */
   private checkProjectilePlayerCollision(
     projectile: ProjectileState,
     player: PlayerState
   ): boolean {
-    // Player hitbox: treat as a sphere centered at player position
-    // This is a simplification - could use capsule for more accuracy
-    const playerRadius = PHYSICS.PLAYER_RADIUS;
-    const playerCenterY = player.position.y + PHYSICS.PLAYER_HEIGHT / 2 - playerRadius;
-
-    // Distance between projectile and player center
-    const dx = projectile.position.x - player.position.x;
-    const dy = projectile.position.y - playerCenterY;
-    const dz = projectile.position.z - player.position.z;
-
-    const distanceSquared = dx * dx + dy * dy + dz * dz;
-    const minDistance = projectile.radius + playerRadius;
-
-    return distanceSquared <= minDistance * minDistance;
+    return sphereOverlapsCapsule(
+      projectile.position,
+      projectile.radius,
+      player.position.x,
+      player.position.y,  // feet position
+      player.position.z,
+      PHYSICS.PLAYER_HEIGHT,
+      PHYSICS.PLAYER_RADIUS
+    );
   }
 
   /**

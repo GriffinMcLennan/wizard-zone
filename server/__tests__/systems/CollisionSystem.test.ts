@@ -154,22 +154,18 @@ describe('CollisionSystem', () => {
       expect(hits).toHaveLength(1);
     });
 
-    it('should detect collision at edge of hitbox', () => {
+    it('should detect collision at edge of hitbox (horizontal)', () => {
       const player = createDefaultPlayerState('player1', 'Player1');
-      player.position = { x: 0, y: PHYSICS.PLAYER_HEIGHT / 2, z: 0 };
+      player.position = { x: 0, y: 0, z: 0 }; // Feet at ground
 
       const players = new Map([['player1', player]]);
 
-      // Calculate player center Y (matches CollisionSystem calculation)
-      const playerCenterY =
-        player.position.y + PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS;
-
-      // Projectile just touching the edge of player hitbox
+      // Projectile at mid-height, just touching the horizontal edge
       const totalRadius = PHYSICS.PLAYER_RADIUS + ABILITIES.PRIMARY_FIRE.RADIUS;
       const projectile = createProjectile(
         'player2',
         totalRadius - 0.01, // Just inside collision range
-        playerCenterY,
+        PHYSICS.PLAYER_HEIGHT / 2, // Mid-height
         0
       );
       const projectiles = new Map([[projectile.id, projectile]]);
@@ -182,22 +178,18 @@ describe('CollisionSystem', () => {
       expect(hits).toHaveLength(1);
     });
 
-    it('should not detect collision just outside hitbox', () => {
+    it('should not detect collision just outside hitbox (horizontal)', () => {
       const player = createDefaultPlayerState('player1', 'Player1');
-      player.position = { x: 0, y: PHYSICS.PLAYER_HEIGHT / 2, z: 0 };
+      player.position = { x: 0, y: 0, z: 0 }; // Feet at ground
 
       const players = new Map([['player1', player]]);
 
-      // Calculate player center Y (matches CollisionSystem calculation)
-      const playerCenterY =
-        player.position.y + PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS;
-
-      // Projectile just outside the edge of player hitbox
+      // Projectile at mid-height, just outside horizontal edge
       const totalRadius = PHYSICS.PLAYER_RADIUS + ABILITIES.PRIMARY_FIRE.RADIUS;
       const projectile = createProjectile(
         'player2',
         totalRadius + 0.1, // Just outside collision range
-        playerCenterY,
+        PHYSICS.PLAYER_HEIGHT / 2, // Mid-height
         0
       );
       const projectiles = new Map([[projectile.id, projectile]]);
@@ -208,6 +200,124 @@ describe('CollisionSystem', () => {
       );
 
       expect(hits).toHaveLength(0);
+    });
+
+    it('should detect collision at player head (capsule top)', () => {
+      const player = createDefaultPlayerState('player1', 'Player1');
+      player.position = { x: 0, y: 0, z: 0 }; // Feet at ground
+
+      const players = new Map([['player1', player]]);
+
+      // Projectile hitting top of head
+      const projectile = createProjectile(
+        'player2',
+        0,
+        PHYSICS.PLAYER_HEIGHT, // At head height
+        0
+      );
+      const projectiles = new Map([[projectile.id, projectile]]);
+
+      const hits = collisionSystem.checkProjectileCollisions(
+        players,
+        projectiles
+      );
+
+      expect(hits).toHaveLength(1);
+    });
+
+    it('should detect collision at player feet (capsule bottom)', () => {
+      const player = createDefaultPlayerState('player1', 'Player1');
+      player.position = { x: 0, y: 0, z: 0 }; // Feet at ground
+
+      const players = new Map([['player1', player]]);
+
+      // Projectile hitting feet
+      const projectile = createProjectile(
+        'player2',
+        0,
+        0, // At feet level
+        0
+      );
+      const projectiles = new Map([[projectile.id, projectile]]);
+
+      const hits = collisionSystem.checkProjectileCollisions(
+        players,
+        projectiles
+      );
+
+      expect(hits).toHaveLength(1);
+    });
+
+    it('should not detect collision above player head', () => {
+      const player = createDefaultPlayerState('player1', 'Player1');
+      player.position = { x: 0, y: 0, z: 0 }; // Feet at ground
+
+      const players = new Map([['player1', player]]);
+
+      // Projectile above head (beyond capsule + projectile radius)
+      const totalRadius = PHYSICS.PLAYER_RADIUS + ABILITIES.PRIMARY_FIRE.RADIUS;
+      const projectile = createProjectile(
+        'player2',
+        0,
+        PHYSICS.PLAYER_HEIGHT + totalRadius + 0.1, // Above head
+        0
+      );
+      const projectiles = new Map([[projectile.id, projectile]]);
+
+      const hits = collisionSystem.checkProjectileCollisions(
+        players,
+        projectiles
+      );
+
+      expect(hits).toHaveLength(0);
+    });
+
+    it('should not detect collision below player feet', () => {
+      const player = createDefaultPlayerState('player1', 'Player1');
+      player.position = { x: 0, y: 1, z: 0 }; // Feet elevated
+
+      const players = new Map([['player1', player]]);
+
+      // Projectile below feet (beyond capsule + projectile radius)
+      const totalRadius = PHYSICS.PLAYER_RADIUS + ABILITIES.PRIMARY_FIRE.RADIUS;
+      const projectile = createProjectile(
+        'player2',
+        0,
+        player.position.y - totalRadius - 0.1, // Below feet
+        0
+      );
+      const projectiles = new Map([[projectile.id, projectile]]);
+
+      const hits = collisionSystem.checkProjectileCollisions(
+        players,
+        projectiles
+      );
+
+      expect(hits).toHaveLength(0);
+    });
+
+    it('should detect collision at diagonal angle to capsule', () => {
+      const player = createDefaultPlayerState('player1', 'Player1');
+      player.position = { x: 0, y: 0, z: 0 }; // Feet at ground
+
+      const players = new Map([['player1', player]]);
+
+      // Projectile at diagonal angle, should hit capsule
+      const dist = PHYSICS.PLAYER_RADIUS + ABILITIES.PRIMARY_FIRE.RADIUS - 0.1;
+      const projectile = createProjectile(
+        'player2',
+        dist * 0.7, // X offset
+        0.5, // Low height
+        dist * 0.7 // Z offset
+      );
+      const projectiles = new Map([[projectile.id, projectile]]);
+
+      const hits = collisionSystem.checkProjectileCollisions(
+        players,
+        projectiles
+      );
+
+      expect(hits).toHaveLength(1);
     });
   });
 

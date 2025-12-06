@@ -129,3 +129,36 @@ export function sphereOverlapsCylinder(
 
   return distSquared <= minDist * minDist;
 }
+
+// Check if a sphere overlaps a capsule (for projectile-player collision)
+// Capsule is defined as a line segment (spine) with a radius
+// This is more accurate than a single sphere for tall characters
+export function sphereOverlapsCapsule(
+  spherePos: Vec3,
+  sphereRadius: number,
+  capsuleBaseX: number,
+  capsuleBaseY: number,  // Y position of capsule bottom (feet)
+  capsuleBaseZ: number,
+  capsuleHeight: number, // Full height of capsule
+  capsuleRadius: number  // Radius of capsule
+): boolean {
+  // Capsule spine goes from A (bottom) to B (top)
+  // A = (capsuleBaseX, capsuleBaseY, capsuleBaseZ)
+  // B = (capsuleBaseX, capsuleBaseY + capsuleHeight, capsuleBaseZ)
+
+  // For a vertical capsule, we only need to find the closest Y on the spine
+  // and then check distance in 3D
+
+  // Clamp sphere Y to capsule spine range to find closest point on spine
+  const closestY = Math.max(capsuleBaseY, Math.min(spherePos.y, capsuleBaseY + capsuleHeight));
+
+  // Distance from sphere center to closest point on capsule spine
+  const dx = spherePos.x - capsuleBaseX;
+  const dy = spherePos.y - closestY;
+  const dz = spherePos.z - capsuleBaseZ;
+
+  const distSquared = dx * dx + dy * dy + dz * dz;
+  const minDist = sphereRadius + capsuleRadius;
+
+  return distSquared <= minDist * minDist;
+}
