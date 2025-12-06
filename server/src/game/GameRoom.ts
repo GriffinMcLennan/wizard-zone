@@ -80,9 +80,16 @@ export class GameRoom {
   addPlayer(playerId: PlayerId, playerName: string): void {
     const player = createDefaultPlayerState(playerId, playerName);
 
-    // Randomize spawn position
-    player.position.x = (Math.random() - 0.5) * 20;
-    player.position.z = (Math.random() - 0.5) * 20;
+    // Randomize spawn position, avoiding the central platform (X: -6 to 6, Z: -6 to 6)
+    let spawnX: number;
+    let spawnZ: number;
+    do {
+      spawnX = (Math.random() - 0.5) * 40; // -20 to 20
+      spawnZ = (Math.random() - 0.5) * 40; // -20 to 20
+    } while (Math.abs(spawnX) < 7 && Math.abs(spawnZ) < 7); // Exclude central platform area with buffer
+
+    player.position.x = spawnX;
+    player.position.z = spawnZ;
     player.position.y = PHYSICS.PLAYER_HEIGHT / 2;
 
     this.players.set(playerId, player);
