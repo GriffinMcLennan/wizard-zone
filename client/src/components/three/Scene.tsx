@@ -129,13 +129,17 @@ interface RemotePlayerMeshProps {
     position: { x: number; y: number; z: number };
     yaw: number;
     isAlive: boolean;
+    health?: number;
+    maxHealth?: number;
   };
 }
 
 function RemotePlayerMesh({ player }: RemotePlayerMeshProps) {
   const meshRef = useRef<THREE.Group>(null);
+  const robeRef = useRef<THREE.Mesh>(null);
+  const orbRef = useRef<THREE.Mesh>(null);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (meshRef.current) {
       meshRef.current.position.set(
         player.position.x,
@@ -144,28 +148,109 @@ function RemotePlayerMesh({ player }: RemotePlayerMeshProps) {
       );
       meshRef.current.rotation.y = player.yaw;
     }
+
+    // Floating orb animation
+    if (orbRef.current) {
+      orbRef.current.position.y = 1.6 + Math.sin(Date.now() * 0.003) * 0.1;
+      orbRef.current.rotation.y += delta * 2;
+    }
+
+    // Subtle robe sway
+    if (robeRef.current) {
+      robeRef.current.rotation.z = Math.sin(Date.now() * 0.002) * 0.03;
+    }
   });
 
   if (!player.isAlive) return null;
 
+  const healthPercent = (player.health ?? 100) / (player.maxHealth ?? 100);
+
   return (
     <group ref={meshRef}>
-      {/* Body */}
-      <mesh castShadow position={[0, 0.9, 0]}>
-        <capsuleGeometry args={[0.4, 1.0, 4, 8]} />
-        <meshStandardMaterial color="#6644ff" />
+      {/* Robe/Body */}
+      <mesh ref={robeRef} castShadow position={[0, 0.8, 0]}>
+        <cylinderGeometry args={[0.25, 0.45, 1.4, 8]} />
+        <meshStandardMaterial
+          color="#4c1d95"
+          emissive="#2d1b69"
+          emissiveIntensity={0.2}
+        />
       </mesh>
 
-      {/* Wizard hat */}
-      <mesh castShadow position={[0, 1.8, 0]}>
-        <coneGeometry args={[0.35, 0.6, 8]} />
-        <meshStandardMaterial color="#4422aa" />
+      {/* Robe bottom flare */}
+      <mesh castShadow position={[0, 0.15, 0]}>
+        <cylinderGeometry args={[0.45, 0.5, 0.3, 8]} />
+        <meshStandardMaterial color="#3b0764" />
       </mesh>
 
-      {/* Name tag */}
-      <sprite position={[0, 2.3, 0]} scale={[2, 0.5, 1]}>
-        <spriteMaterial color="#ffffff" opacity={0.8} transparent />
-      </sprite>
+      {/* Head */}
+      <mesh castShadow position={[0, 1.55, 0]}>
+        <sphereGeometry args={[0.22, 16, 16]} />
+        <meshStandardMaterial color="#f5d0c5" />
+      </mesh>
+
+      {/* Wizard hat - brim */}
+      <mesh castShadow position={[0, 1.7, 0]}>
+        <cylinderGeometry args={[0.4, 0.4, 0.08, 16]} />
+        <meshStandardMaterial color="#1e1b4b" />
+      </mesh>
+
+      {/* Wizard hat - cone */}
+      <mesh castShadow position={[0, 2.1, 0]}>
+        <coneGeometry args={[0.3, 0.8, 8]} />
+        <meshStandardMaterial
+          color="#312e81"
+          emissive="#4c1d95"
+          emissiveIntensity={0.3}
+        />
+      </mesh>
+
+      {/* Hat star decoration */}
+      <mesh position={[0, 2.0, 0.31]}>
+        <octahedronGeometry args={[0.08, 0]} />
+        <meshStandardMaterial
+          color="#fbbf24"
+          emissive="#f59e0b"
+          emissiveIntensity={1}
+        />
+      </mesh>
+
+      {/* Floating magic orb */}
+      <group position={[0.5, 1.2, 0.3]}>
+        <mesh ref={orbRef}>
+          <sphereGeometry args={[0.12, 16, 16]} />
+          <meshStandardMaterial
+            color="#a78bfa"
+            emissive="#7c3aed"
+            emissiveIntensity={2}
+            transparent
+            opacity={0.9}
+          />
+        </mesh>
+        <pointLight color="#8b5cf6" intensity={0.5} distance={2} />
+      </group>
+
+      {/* Health bar background */}
+      <mesh position={[0, 2.4, 0]}>
+        <planeGeometry args={[0.8, 0.1]} />
+        <meshBasicMaterial color="#1f2937" transparent opacity={0.8} />
+      </mesh>
+
+      {/* Health bar fill */}
+      <mesh position={[-0.4 * (1 - healthPercent), 2.4, 0.01]}>
+        <planeGeometry args={[0.8 * healthPercent, 0.08]} />
+        <meshBasicMaterial
+          color={healthPercent > 0.5 ? '#22c55e' : healthPercent > 0.25 ? '#eab308' : '#ef4444'}
+        />
+      </mesh>
+
+      {/* Subtle glow under wizard */}
+      <pointLight
+        position={[0, 0.5, 0]}
+        color="#8b5cf6"
+        intensity={0.3}
+        distance={3}
+      />
     </group>
   );
 }
