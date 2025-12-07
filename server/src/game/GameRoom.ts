@@ -6,15 +6,9 @@ import {
   ServerMessageType,
   ProjectileState,
   PlayerDiedMessage,
-  GameOverMessage,
-  GamePhaseUpdateMessage,
-  CountdownUpdateMessage,
-  GamePhase,
   createDefaultPlayerState,
   NETWORK,
   PHYSICS,
-  ABILITIES,
-  GAME,
 } from '@wizard-zone/shared';
 import { PhysicsSystem } from '../systems/PhysicsSystem.js';
 import { ProjectileSystem } from '../systems/ProjectileSystem.js';
@@ -24,15 +18,13 @@ import { NovaBlastSystem } from '../systems/NovaBlastSystem.js';
 import { ArcaneRaySystem } from '../systems/ArcaneRaySystem.js';
 import { HealthRegenSystem } from '../systems/HealthRegenSystem.js';
 import { CooldownSystem } from '../systems/CooldownSystem.js';
-import { NovaBlastMessage, ArcaneRayMessage } from '@wizard-zone/shared';
+import { GamePhaseManager } from './GamePhaseManager.js';
+import { InputProcessor } from './InputProcessor.js';
 
 type BroadcastFn = (message: object) => void;
 
 export class GameRoom {
   public readonly roomId: string;
-
-  // Game phase state
-  private phase: GamePhase = 'waiting_for_players';
 
   // Connected players (persists across games)
   private connectedPlayers: Map<PlayerId, { name: string }> = new Map();
@@ -43,22 +35,20 @@ export class GameRoom {
   private pendingInputs: Map<PlayerId, InputState[]> = new Map();
   private currentTick = 0;
 
-  // Countdown state
-  private countdownSeconds: number = 0;
-  private countdownIntervalId: NodeJS.Timeout | null = null;
-
   // Game loop state
   private running = false;
   private broadcast: BroadcastFn = () => {};
   private intervalId: NodeJS.Timeout | null = null;
+
+  // Phase manager and input processor
+  private phaseManager: GamePhaseManager;
+  private inputProcessor: InputProcessor;
 
   // Systems
   private physicsSystem: PhysicsSystem;
   private projectileSystem: ProjectileSystem;
   private collisionSystem: CollisionSystem;
   private combatSystem: CombatSystem;
-  private novaBlastSystem: NovaBlastSystem;
-  private arcaneRaySystem: ArcaneRaySystem;
   private healthRegenSystem: HealthRegenSystem;
   private cooldownSystem: CooldownSystem;
 
@@ -68,10 +58,26 @@ export class GameRoom {
     this.projectileSystem = new ProjectileSystem();
     this.collisionSystem = new CollisionSystem();
     this.combatSystem = new CombatSystem();
-    this.novaBlastSystem = new NovaBlastSystem();
-    this.arcaneRaySystem = new ArcaneRaySystem();
+    const novaBlastSystem = new NovaBlastSystem();
+    const arcaneRaySystem = new ArcaneRaySystem();
     this.healthRegenSystem = new HealthRegenSystem();
     this.cooldownSystem = new CooldownSystem();
+
+    // Initialize phase manager (broadcast will be set later)
+    this.phaseManager = new GamePhaseManager(
+      (msg) => this.broadcast(msg),
+      () => this.onGameStart()
+    );
+
+    // Initialize input processor
+    this.inputProcessor = new InputProcessor({
+      physicsSystem: this.physicsSystem,
+      projectileSystem: this.projectileSystem,
+      novaBlastSystem,
+      arcaneRaySystem,
+      combatSystem: this.combatSystem,
+      broadcast: (msg) => this.broadcast(msg),
+    });
   }
 
   setBroadcaster(fn: BroadcastFn): void {
@@ -98,7 +104,7 @@ export class GameRoom {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
-    this.stopCountdown();
+    this.phaseManager.stop();
   }
 
   addPlayer(playerId: PlayerId, playerName: string): void {
@@ -106,13 +112,15 @@ export class GameRoom {
     this.connectedPlayers.set(playerId, { name: playerName });
     this.pendingInputs.set(playerId, []);
 
-    if (this.phase === 'playing') {
+    const phase = this.phaseManager.getPhase();
+
+    if (phase === 'playing') {
       // Game in progress - spawn player immediately
       const player = createDefaultPlayerState(playerId, playerName);
       this.setRandomSpawnPosition(player);
       this.players.set(playerId, player);
       console.log(`[GameRoom] Player ${playerName} joined mid-game at (${player.position.x.toFixed(2)}, ${player.position.z.toFixed(2)})`);
-    } else if (this.phase === 'waiting_for_players') {
+    } else if (phase === 'waiting_for_players') {
       // Add to game state for rendering
       const player = createDefaultPlayerState(playerId, playerName);
       this.setRandomSpawnPosition(player);
@@ -120,8 +128,8 @@ export class GameRoom {
       console.log(`[GameRoom] Player ${playerName} joined waiting room at (${player.position.x.toFixed(2)}, ${player.position.z.toFixed(2)})`);
 
       // Check if we now have enough players to start
-      this.checkAutoStart();
-    } else if (this.phase === 'countdown') {
+      this.phaseManager.checkAutoStart(this.connectedPlayers.size);
+    } else if (phase === 'countdown') {
       // Player joins during countdown - they'll be visible and in next game
       const player = createDefaultPlayerState(playerId, playerName);
       this.setRandomSpawnPosition(player);
@@ -130,7 +138,7 @@ export class GameRoom {
     }
 
     // Broadcast phase to all clients (new player needs current state)
-    this.broadcastPhase();
+    this.phaseManager.broadcastPhase(this.connectedPlayers.size);
   }
 
   removePlayer(playerId: PlayerId): void {
@@ -147,24 +155,20 @@ export class GameRoom {
       return;
     }
 
-    if (this.phase === 'playing') {
+    const phase = this.phaseManager.getPhase();
+
+    if (phase === 'playing') {
       // Check win condition
       const winnerId = this.combatSystem.checkWinCondition(this.players);
       if (winnerId) {
         this.handleGameOver(winnerId);
       }
-    } else if (this.phase === 'countdown') {
-      // Check if we still have enough players for next game
-      if (this.connectedPlayers.size < GAME.MIN_PLAYERS_TO_START) {
-        // Cancel countdown and go back to waiting
-        this.stopCountdown();
-        this.phase = 'waiting_for_players';
-        console.log('[GameRoom] Not enough players, returning to waiting state');
-        this.broadcastPhase();
-      }
-    } else if (this.phase === 'waiting_for_players') {
+    } else if (phase === 'countdown') {
+      // Let phase manager handle countdown cancellation if needed
+      this.phaseManager.onPlayerCountChanged(this.connectedPlayers.size);
+    } else if (phase === 'waiting_for_players') {
       // Update player count
-      this.broadcastPhase();
+      this.phaseManager.broadcastPhase(this.connectedPlayers.size);
     }
   }
 
@@ -182,63 +186,15 @@ export class GameRoom {
     player.position.y = PHYSICS.PLAYER_HEIGHT / 2;
   }
 
-  private checkAutoStart(): void {
-    if (this.phase !== 'waiting_for_players') return;
-
-    if (this.connectedPlayers.size >= GAME.MIN_PLAYERS_TO_START) {
-      this.startNewGame();
-    }
-  }
-
   private handleGameOver(winnerId: PlayerId): void {
     const winner = this.players.get(winnerId);
     const winnerName = winner?.name ?? 'Unknown';
-
-    // Broadcast game over
-    const gameOverMessage: GameOverMessage = {
-      type: ServerMessageType.GAME_OVER,
-      winnerId,
-      winnerName,
-    };
-    this.broadcast(gameOverMessage);
-
-    console.log(`[GameRoom] Game over! Winner: ${winnerName}`);
-
-    // Start countdown for next game
-    this.startCountdown();
+    this.phaseManager.handleGameOver(winnerId, winnerName);
   }
 
-  private startCountdown(): void {
-    this.phase = 'countdown';
-    this.countdownSeconds = GAME.COUNTDOWN_SECONDS;
-
-    this.broadcastPhase();
-    this.broadcastCountdown();
-
-    this.countdownIntervalId = setInterval(() => {
-      this.countdownSeconds--;
-
-      if (this.countdownSeconds <= 0) {
-        this.stopCountdown();
-        this.startNewGame();
-      } else {
-        this.broadcastCountdown();
-      }
-    }, 1000);
-  }
-
-  private stopCountdown(): void {
-    if (this.countdownIntervalId) {
-      clearInterval(this.countdownIntervalId);
-      this.countdownIntervalId = null;
-    }
-  }
-
-  private startNewGame(): void {
+  private onGameStart(): void {
     // Check minimum players
-    if (this.connectedPlayers.size < GAME.MIN_PLAYERS_TO_START) {
-      this.phase = 'waiting_for_players';
-      this.broadcastPhase();
+    if (!this.phaseManager.canStartNewGame(this.connectedPlayers.size)) {
       console.log('[GameRoom] Not enough players to start new game');
       return;
     }
@@ -256,37 +212,16 @@ export class GameRoom {
       this.pendingInputs.set(playerId, []);
     }
 
-    this.phase = 'playing';
-    this.broadcastPhase();
-
+    this.phaseManager.startPlaying(this.connectedPlayers.size);
     console.log(`[GameRoom] New game started with ${this.players.size} players`);
   }
 
   private fullReset(): void {
-    this.stopCountdown();
-    this.phase = 'waiting_for_players';
+    this.phaseManager.fullReset();
     this.projectiles.clear();
     this.players.clear();
     this.currentTick = 0;
     console.log('[GameRoom] Room fully reset - all players left');
-  }
-
-  private broadcastPhase(): void {
-    const message: GamePhaseUpdateMessage = {
-      type: ServerMessageType.GAME_PHASE_UPDATE,
-      phase: this.phase,
-      minPlayers: GAME.MIN_PLAYERS_TO_START,
-      currentPlayers: this.connectedPlayers.size,
-    };
-    this.broadcast(message);
-  }
-
-  private broadcastCountdown(): void {
-    const message: CountdownUpdateMessage = {
-      type: ServerMessageType.COUNTDOWN_UPDATE,
-      secondsRemaining: this.countdownSeconds,
-    };
-    this.broadcast(message);
   }
 
   handleInput(playerId: PlayerId, input: InputState): void {
@@ -301,7 +236,7 @@ export class GameRoom {
 
     // Always broadcast state so clients can render
     // But only process game logic during 'playing' phase
-    if (this.phase !== 'playing') {
+    if (this.phaseManager.getPhase() !== 'playing') {
       this.broadcastState();
       return;
     }
@@ -370,7 +305,14 @@ export class GameRoom {
       if (!player || !player.isAlive) continue;
 
       for (const input of inputs) {
-        this.applyInput(player, input);
+        this.inputProcessor.applyInput(
+          player,
+          input,
+          this.projectiles,
+          this.players,
+          this.currentTick,
+          (death) => this.handleDeath(death)
+        );
         player.lastProcessedInput = input.sequenceNumber;
       }
     }
@@ -378,113 +320,6 @@ export class GameRoom {
     // Clear processed inputs
     for (const inputs of this.pendingInputs.values()) {
       inputs.length = 0;
-    }
-  }
-
-  private applyInput(player: PlayerState, input: InputState): void {
-    // Update look direction
-    player.yaw = input.look.yaw;
-    player.pitch = input.look.pitch;
-
-    // Apply movement
-    this.physicsSystem.applyMovementInput(
-      player,
-      input.movement.forward,
-      input.movement.backward,
-      input.movement.left,
-      input.movement.right,
-      input.look.yaw
-    );
-
-    // Apply jump
-    if (input.actions.jump) {
-      this.physicsSystem.applyJump(player);
-    }
-
-    // Primary fire - spawn projectile
-    if (input.actions.primaryFire) {
-      if (this.projectileSystem.canFire(player, this.currentTick)) {
-        const projectile = this.projectileSystem.createProjectile(player, this.currentTick);
-        this.projectiles.set(projectile.id, projectile);
-        this.projectileSystem.recordFire(player, this.currentTick);
-      }
-    }
-
-    // Dash ability (Shift)
-    if (input.actions.dash) {
-      this.physicsSystem.applyDash(player, input.look.yaw, this.currentTick);
-    }
-
-    // Launch jump ability (Q)
-    if (input.actions.launchJump) {
-      this.physicsSystem.applyLaunchJump(player, input.look.yaw, this.currentTick);
-    }
-
-    // Nova Blast ability (E)
-    if (input.actions.novaBlast) {
-      const result = this.novaBlastSystem.fireNovaBlast(
-        player,
-        this.players,
-        this.currentTick
-      );
-      if (result) {
-        // Broadcast visual effect to all clients
-        const effectMessage: NovaBlastMessage = {
-          type: ServerMessageType.NOVA_BLAST,
-          casterId: result.casterId,
-          position: result.casterPosition,
-          radius: ABILITIES.NOVA_BLAST.RADIUS,
-        };
-        this.broadcast(effectMessage);
-
-        // Apply damage to all hit players
-        for (const victimId of result.hitPlayerIds) {
-          const death = this.combatSystem.applyHit(
-            this.players,
-            victimId,
-            result.casterId,
-            result.damage,
-            this.currentTick
-          );
-          if (death) {
-            this.handleDeath(death);
-          }
-        }
-      }
-    }
-
-    // Arcane Ray ability (R)
-    if (input.actions.arcaneRay) {
-      const result = this.arcaneRaySystem.fireArcaneRay(
-        player,
-        this.players,
-        this.currentTick
-      );
-      if (result) {
-        // Broadcast visual effect to all clients
-        const effectMessage: ArcaneRayMessage = {
-          type: ServerMessageType.ARCANE_RAY,
-          casterId: player.id,
-          origin: result.origin,
-          endpoint: result.endpoint,
-          hitPlayerId: result.hitPlayerId,
-        };
-        this.broadcast(effectMessage);
-
-        // Apply damage if hit
-        if (result.hitPlayerId) {
-          const death = this.combatSystem.applyHit(
-            this.players,
-            result.hitPlayerId,
-            player.id,
-            result.damage,
-            this.currentTick
-          );
-          if (death) {
-            this.handleDeath(death);
-          }
-        }
-      }
     }
   }
 
@@ -497,7 +332,7 @@ export class GameRoom {
     this.broadcast(deathMessage);
 
     // Check win condition
-    if (this.phase === 'playing') {
+    if (this.phaseManager.getPhase() === 'playing') {
       const winnerId = this.combatSystem.checkWinCondition(this.players);
       if (winnerId) {
         this.handleGameOver(winnerId);

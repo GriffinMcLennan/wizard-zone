@@ -10,7 +10,7 @@ This document outlines identified refactoring opportunities in the codebase, pri
 |---|----------|------------|--------|--------|
 | ~~1~~ | ~~Extract cooldown logic~~ | ~~Low~~ | ~~High~~ | **DONE** |
 | ~~2~~ | ~~Standardize ability interface~~ | ~~Medium~~ | ~~High~~ | **DONE** |
-| 3 | Split GameRoom.ts | High | High | Pending |
+| ~~3~~ | ~~Split GameRoom.ts~~ | ~~High~~ | ~~High~~ | **DONE** |
 | 4 | Simplify ray intersection | Medium | Medium | Pending |
 | 5 | Handler registry pattern | Medium | Medium | Pending |
 | 6 | Extract magic numbers | Low | Medium | Pending |
@@ -46,81 +46,26 @@ This document outlines identified refactoring opportunities in the codebase, pri
 
 ---
 
-## 3. Split GameRoom.ts (522 lines)
+## ~~3. Split GameRoom.ts~~ - COMPLETED
 
-**Priority:** High
-**Complexity:** High
-**File:** `server/src/game/GameRoom.ts`
+**Status:** Completed
 
-### Problem
+**Changes made:**
+- Created `server/src/game/GamePhaseManager.ts` (134 lines) for phase transitions and countdown logic
+- Created `server/src/game/InputProcessor.ts` (168 lines) for input handling and ability dispatch
+- Updated `server/src/game/GameRoom.ts` to use new classes (reduced from 524 to 359 lines)
+- Added comprehensive tests in `server/__tests__/game/GamePhaseManager.test.ts` (30 tests)
+- Added comprehensive tests in `server/__tests__/game/InputProcessor.test.ts` (13 tests)
 
-This class handles too many concerns:
-- Game state management (players, projectiles, tick)
-- Phase transitions (waiting, countdown, playing)
-- Input processing (105-line `applyInput()` method)
-- System orchestration (67-line `tick()` method)
-- Broadcasting state to clients
-
-### Solution
-
-Extract into focused classes:
-
+**Final structure:**
 ```
 server/src/game/
-├── GameRoom.ts           # Lightweight orchestrator (reduced to ~150 lines)
-├── GamePhaseManager.ts   # Phase transitions, countdown logic
-├── InputProcessor.ts     # Process and apply player inputs
-└── SystemOrchestrator.ts # Coordinate system updates in tick
+├── GameRoom.ts           # Orchestrator (~359 lines)
+├── GamePhaseManager.ts   # Phase transitions, countdown (~134 lines)
+└── InputProcessor.ts     # Input handling, ability dispatch (~168 lines)
 ```
 
-**GamePhaseManager.ts:**
-```typescript
-export class GamePhaseManager {
-  private phase: GamePhase = 'waiting_for_players';
-  private countdownTicks: number = 0;
-
-  checkAutoStart(playerCount: number, minPlayers: number): void;
-  updateCountdown(deltaTime: number): boolean; // returns true if countdown finished
-  startNewGame(): void;
-  endGame(): void;
-  getPhase(): GamePhase;
-}
-```
-
-**InputProcessor.ts:**
-```typescript
-export class InputProcessor {
-  constructor(
-    private physics: PhysicsSystem,
-    private projectiles: ProjectileSystem,
-    private novaBlast: NovaBlastSystem,
-    private arcaneRay: ArcaneRaySystem,
-    private combat: CombatSystem
-  ) {}
-
-  applyInput(player: PlayerState, input: InputState, currentTick: number): void;
-  private applyMovementInput(player: PlayerState, input: InputState): void;
-  private applyAbilityInput(player: PlayerState, input: InputState, currentTick: number): void;
-}
-```
-
-### Tests to Write First
-
-```typescript
-// server/__tests__/game/GamePhaseManager.test.ts
-describe('GamePhaseManager', () => {
-  it('transitions from waiting to countdown when min players reached');
-  it('transitions from countdown to playing when countdown ends');
-  it('transitions back to waiting if players disconnect during countdown');
-});
-
-// server/__tests__/game/InputProcessor.test.ts
-describe('InputProcessor', () => {
-  it('applies movement input to player');
-  it('triggers dash when shift pressed and ready');
-  it('creates projectile when primary fire pressed');
-});
-```
+**Note:** SystemOrchestrator was not created as the `tick()` method was already clean sequential orchestration - extracting it would add indirection without benefit.
 
 ---
 
